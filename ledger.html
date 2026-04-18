@@ -1,0 +1,843 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>AlAwal Transit — Daily Ledger</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+/* Prevent iOS input zoom */
+input, select, textarea { font-size: 16px !important; }
+@media (min-width: 640px) { input, select, textarea { font-size: 14px !important; } }
+@media print {
+  .no-print { display: none !important; }
+  body { background: white; }
+}
+</style>
+</head>
+<body class="bg-gray-100 text-gray-800 min-h-screen">
+
+<!-- TOP NAV -->
+<nav class="bg-slate-900 text-white px-4 py-3 flex items-center justify-between no-print sticky top-0 z-40 shadow-lg">
+  <div class="flex items-center gap-3">
+    <div class="w-9 h-9 bg-amber-500 rounded-full flex items-center justify-center font-bold text-slate-900 text-sm shrink-0">AT</div>
+    <div>
+      <div class="font-bold text-base leading-tight">AlAwal Transit</div>
+      <div class="text-xs text-slate-400 leading-tight hidden sm:block">Daily Ledger System</div>
+    </div>
+  </div>
+  <!-- Desktop nav tabs -->
+  <div class="hidden md:flex gap-1 items-center">
+    <button onclick="showView('entry')" data-view="entry" class="nav-btn px-4 py-2 rounded-lg text-sm font-medium text-slate-300 hover:bg-slate-700 transition-colors">+ New Entry</button>
+    <button onclick="showView('daily')" data-view="daily" class="nav-btn px-4 py-2 rounded-lg text-sm font-medium text-slate-300 hover:bg-slate-700 transition-colors">Daily View</button>
+    <button onclick="showView('monthly')" data-view="monthly" class="nav-btn px-4 py-2 rounded-lg text-sm font-medium text-slate-300 hover:bg-slate-700 transition-colors">Dashboard</button>
+    <div class="w-px h-5 bg-slate-600 mx-1"></div>
+    <span class="sync-status text-xs font-medium text-slate-400 min-w-16 text-right"></span>
+    <div class="w-px h-5 bg-slate-600 mx-1"></div>
+    <button onclick="exportData()" class="px-3 py-2 rounded-lg text-sm font-medium text-amber-400 hover:bg-slate-700 transition-colors" title="Export all data as JSON">↓ Export</button>
+    <label class="px-3 py-2 rounded-lg text-sm font-medium text-slate-300 hover:bg-slate-700 transition-colors cursor-pointer" title="Import JSON backup">↑ Import<input type="file" accept=".json" class="hidden" onchange="importData(event)"></label>
+  </div>
+</nav>
+
+<!-- VIEWS — pb-20 clears the mobile bottom tab bar -->
+<div id="view-entry"  class="view max-w-4xl mx-auto px-3 py-4 pb-24 md:px-5"></div>
+<div id="view-daily"  class="view max-w-4xl mx-auto px-3 py-4 pb-24 md:px-5 hidden"></div>
+<div id="view-monthly"class="view max-w-5xl mx-auto px-3 py-4 pb-24 md:px-5 hidden"></div>
+
+<!-- MOBILE BOTTOM TAB BAR -->
+<div class="md:hidden no-print fixed bottom-0 left-0 right-0 bg-slate-900 border-t border-slate-700 flex z-40 safe-area-bottom">
+  <button onclick="showView('entry')" data-tab="entry" class="tab-btn flex-1 py-3 flex flex-col items-center gap-0.5 text-slate-400 active:bg-slate-800 transition-colors">
+    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4"/></svg>
+    <span class="text-xs font-medium">New Entry</span>
+  </button>
+  <button onclick="showView('daily')" data-tab="daily" class="tab-btn flex-1 py-3 flex flex-col items-center gap-0.5 text-slate-400 active:bg-slate-800 transition-colors">
+    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+    <span class="text-xs font-medium">Daily</span>
+  </button>
+  <button onclick="showView('monthly')" data-tab="monthly" class="tab-btn flex-1 py-3 flex flex-col items-center gap-0.5 text-slate-400 active:bg-slate-800 transition-colors">
+    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+    <span class="text-xs font-medium">Dashboard</span>
+  </button>
+</div>
+
+<!-- DAY DETAIL MODAL -->
+<div id="day-modal" class="hidden fixed inset-0 bg-black/60 z-50 overflow-auto no-print" onclick="if(event.target===this)closeModal()">
+  <div class="md:max-w-3xl md:mx-auto md:my-6 md:mb-12 md:rounded-2xl bg-white shadow-2xl min-h-screen md:min-h-0" id="day-modal-body"></div>
+</div>
+
+<script>
+// ─── DATA LAYER ─────────────────────────────────────────────
+const CACHE_KEY = 'alawal_cache';
+const API = '/.netlify/functions';
+let appData = { entries: [], drivers: ['Nazir', 'Sheer Haider'] };
+
+// Synchronous read — always returns in-memory state
+function load() { return appData; }
+
+// Persist to localStorage cache
+function cache() { try { localStorage.setItem(CACHE_KEY, JSON.stringify(appData)); } catch {} }
+
+// Sync status indicator
+function setSyncStatus(s) {
+  const map = { syncing:['⟳ Syncing…','text-slate-400'], ok:['✓ Saved','text-green-400'], offline:['◉ Offline','text-amber-400'], error:['✗ Sync error','text-red-400'] };
+  const [text, cls] = map[s] || map.ok;
+  document.querySelectorAll('.sync-status').forEach(el => {
+    el.textContent = text;
+    el.className = `sync-status text-xs font-medium transition-all min-w-16 text-right ${cls}`;
+    if (s === 'ok') setTimeout(() => { el.textContent = ''; }, 2500);
+  });
+}
+
+// API helper
+async function apiFetch(path, opts = {}) {
+  const r = await fetch(`${API}/${path}`, {
+    method: opts.method || 'GET',
+    headers: { 'Content-Type': 'application/json' },
+    body: opts.body ? JSON.stringify(opts.body) : undefined,
+  });
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  return r.json();
+}
+
+// Initial load: cache first → then sync from API
+async function initData() {
+  try { const c = JSON.parse(localStorage.getItem(CACHE_KEY)); if (c?.entries) appData = c; } catch {}
+  setSyncStatus('syncing');
+  try {
+    const [entries, drivers] = await Promise.all([apiFetch('entries'), apiFetch('drivers')]);
+    appData.entries = entries;
+    if (drivers.length) appData.drivers = drivers;
+    cache();
+    setSyncStatus('ok');
+    const active = document.querySelector('.view:not(.hidden)');
+    if (active?.id === 'view-daily')   renderDaily();
+    if (active?.id === 'view-monthly') renderMonthly();
+    renderForm();
+  } catch (e) {
+    console.warn('API unavailable, using cache:', e.message);
+    setSyncStatus('offline');
+  }
+}
+
+// ─── UTILS ──────────────────────────────────────────────────
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2);
+const Rs = n => 'Rs. ' + (n||0).toLocaleString('en-PK');
+const N  = n => (n||0).toLocaleString('en-PK');
+
+function calc(e) {
+  const cashInc  = e.trips.filter(t=>t.pm==='cash').reduce((s,t)=>s+(+t.income||0),0);
+  const totalInc = e.trips.reduce((s,t)=>s+(+t.income||0),0);
+  const tripExp  = e.trips.reduce((s,t)=>s+t.exp.reduce((ss,x)=>ss+(+x.amt||0),0),0);
+  const miscExp  = e.misc.reduce((s,x)=>s+(+x.amt||0),0);
+  const coExp    = (e.coexp||[]).reduce((s,x)=>s+(+x.amt||0),0);
+  const totalExp = tripExp + miscExp + coExp;
+  const drvIn    = (+e.prevCash||0) + (+e.advance||0) + cashInc;
+  const drvRem   = drvIn - tripExp - miscExp;
+  const profit   = totalInc - totalExp;
+  return { cashInc, totalInc, tripExp, miscExp, coExp, totalExp, drvIn, drvRem, profit };
+}
+
+// ─── FORM STATE ─────────────────────────────────────────────
+let FS = null;
+
+function blankFS() {
+  return { id:null, date:new Date().toISOString().slice(0,10), driver:'', prevCash:0, advance:0, trips:[], misc:[], coexp:[], notes:'' };
+}
+
+function readDOM() {
+  const g = id => document.getElementById(id);
+  if (!g('f-date')) return;
+  FS.date     = g('f-date').value;
+  FS.driver   = g('f-driver').value;
+  FS.prevCash = +g('f-prev').value||0;
+  FS.advance  = +g('f-adv').value||0;
+  FS.notes    = g('f-notes').value;
+  FS.trips.forEach((t,ti)=>{
+    t.dest   = (g(`t-dest-${ti}`)||{}).value||t.dest||'';
+    t.cust   = (g(`t-cust-${ti}`)||{}).value||t.cust||'';
+    t.income = +(g(`t-inc-${ti}`)||{}).value||0;
+    const r  = document.querySelector(`input[name="t-pm-${ti}"]:checked`);
+    if (r) t.pm = r.value;
+    t.exp.forEach((x,ei)=>{
+      x.desc = (g(`t-ed-${ti}-${ei}`)||{}).value||x.desc||'';
+      x.amt  = +(g(`t-ea-${ti}-${ei}`)||{}).value||0;
+    });
+  });
+  FS.misc.forEach((x,i)=>{
+    x.desc = (g(`m-d-${i}`)||{}).value||x.desc||'';
+    x.amt  = +(g(`m-a-${i}`)||{}).value||0;
+  });
+  (FS.coexp||[]).forEach((x,i)=>{
+    x.desc = (g(`c-d-${i}`)||{}).value||x.desc||'';
+    x.qty  = +(g(`c-q-${i}`)||{}).value||0;
+    x.rate = +(g(`c-r-${i}`)||{}).value||0;
+    x.amt  = (x.qty&&x.rate) ? x.qty*x.rate : +(g(`c-a-${i}`)||{}).value||0;
+  });
+}
+
+function addTrip()    { readDOM(); FS.trips.push({id:uid(),dest:'',cust:'',income:0,pm:'cash',exp:[{desc:'Misc Trip Expense',amt:0}]}); renderForm(); }
+function remTrip(i)   { readDOM(); FS.trips.splice(i,1); renderForm(); }
+function addTE(ti)    { readDOM(); FS.trips[ti].exp.push({desc:'',amt:0}); renderForm(); }
+function remTE(ti,ei) { readDOM(); FS.trips[ti].exp.splice(ei,1); renderForm(); }
+function addMisc()    { readDOM(); FS.misc.push({desc:'',amt:0}); renderForm(); }
+function remMisc(i)   { readDOM(); FS.misc.splice(i,1); renderForm(); }
+function addCoExp()   { readDOM(); FS.coexp.push({desc:'',qty:0,rate:0,amt:0}); renderForm(); }
+function remCoExp(i)  { readDOM(); FS.coexp.splice(i,1); renderForm(); }
+
+function coexpSync(i) {
+  const q = +(document.getElementById(`c-q-${i}`)||{}).value||0;
+  const r = +(document.getElementById(`c-r-${i}`)||{}).value||0;
+  if (q&&r) { const el=document.getElementById(`c-a-${i}`); if(el) el.value=q*r; }
+  updateSummary();
+}
+
+function updateSummary() {
+  readDOM();
+  const c = calc(FS);
+  const el = id => document.getElementById(id);
+  if (!el('s-inc')) return;
+  el('s-inc').textContent   = Rs(c.totalInc);
+  el('s-exp').textContent   = Rs(c.totalExp);
+  el('s-exp2').textContent  = `Trip: ${N(c.tripExp)} · Misc: ${N(c.miscExp)} · Co.: ${N(c.coExp)}`;
+  el('s-prof').textContent  = Rs(c.profit);
+  el('s-prof').className    = `text-xl font-bold mt-1 ${c.profit>=0?'text-blue-700':'text-red-600'}`;
+  el('s-drvin').textContent = Rs(c.drvIn);
+  el('s-drvrem').textContent= Rs(c.drvRem);
+  el('s-drvrem').className  = `text-xl font-bold mt-1 ${c.drvRem>=0?'text-amber-700':'text-red-600'}`;
+  FS.trips.forEach((t,ti)=>{
+    const tot = t.exp.reduce((s,x)=>s+(+x.amt||0),0);
+    const e2  = document.getElementById(`t-tot-${ti}`);
+    if (e2) e2.textContent = `Trip Expenses: ${Rs(tot)}`;
+  });
+}
+
+async function saveEntry() {
+  readDOM();
+  if (!FS.date||!FS.driver.trim()) { alert('Please enter date and driver name.'); return; }
+  if (!FS.id) FS.id = uid();
+  const idx = appData.entries.findIndex(e=>e.id===FS.id);
+  if (idx>=0) appData.entries[idx]={...FS}; else appData.entries.push({...FS});
+  if (FS.driver && !appData.drivers.includes(FS.driver)) appData.drivers.push(FS.driver);
+  cache();
+  setSyncStatus('syncing');
+  try {
+    await apiFetch('entries', { method:'POST', body:{...FS} });
+    if (FS.driver) await apiFetch('drivers', { method:'POST', body:{ name:FS.driver } });
+    setSyncStatus('ok');
+  } catch(e) { setSyncStatus('error'); console.warn('Save failed:', e); }
+  alert('Entry saved!');
+  FS = blankFS();
+  renderForm();
+}
+
+function clearForm() { if(confirm('Clear the form?')) { FS=blankFS(); renderForm(); } }
+
+// ─── RENDER FORM ────────────────────────────────────────────
+const INP  = 'w-full border rounded-lg px-3 py-2.5 text-sm mt-1 focus:outline-none focus:ring-2 focus:ring-blue-300';
+const INPS = 'border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300';
+
+function renderForm() {
+  if (!FS) FS = blankFS();
+  const data = load();
+  const c = calc(FS);
+  const drvOpts = data.drivers.map(d=>`<option value="${esc(d)}">`).join('');
+
+  const tripsHTML = FS.trips.map((t,ti)=>{
+    const tot = t.exp.reduce((s,x)=>s+(+x.amt||0),0);
+    const expRows = t.exp.map((x,ei)=>`
+      <div class="flex gap-2 items-center">
+        <input id="t-ed-${ti}-${ei}" type="text" value="${esc(x.desc)}" placeholder="Description"
+          class="flex-1 ${INPS}" oninput="updateSummary()">
+        <input id="t-ea-${ti}-${ei}" type="number" inputmode="numeric" value="${x.amt||''}" placeholder="0"
+          class="w-24 ${INPS} text-right" oninput="updateSummary()">
+        <button onclick="remTE(${ti},${ei})" class="w-9 h-9 flex items-center justify-center text-red-400 hover:text-red-600 shrink-0 rounded-lg hover:bg-red-50 text-lg">✕</button>
+      </div>`).join('');
+
+    return `
+    <div class="bg-white border border-blue-100 rounded-xl p-4 mb-3 shadow-sm">
+      <div class="flex justify-between items-center mb-3">
+        <span class="font-semibold text-blue-700">Trip ${ti+1}</span>
+        <button onclick="remTrip(${ti})" class="text-red-500 text-sm px-2 py-1 rounded hover:bg-red-50">Remove</button>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+        <div>
+          <label class="text-xs font-medium text-gray-500">Destination / Location</label>
+          <input id="t-dest-${ti}" type="text" value="${esc(t.dest)}" placeholder="e.g. Sohrab Goth Stock" class="${INP}" oninput="updateSummary()">
+        </div>
+        <div>
+          <label class="text-xs font-medium text-gray-500">Customer / Party</label>
+          <input id="t-cust-${ti}" type="text" value="${esc(t.cust)}" placeholder="e.g. Abdul Rahim" class="${INP}" oninput="updateSummary()">
+        </div>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+        <div>
+          <label class="text-xs font-medium text-gray-500">Income (Rs.)</label>
+          <input id="t-inc-${ti}" type="number" inputmode="numeric" value="${t.income||''}" placeholder="0" class="${INP}" oninput="updateSummary()">
+        </div>
+        <div>
+          <label class="text-xs font-medium text-gray-500">Payment Mode</label>
+          <div class="flex gap-4 mt-2.5">
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="radio" name="t-pm-${ti}" value="cash" ${t.pm==='cash'?'checked':''} onchange="updateSummary()" class="w-4 h-4 accent-green-600"> <span class="text-sm">Cash (نقد)</span>
+            </label>
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="radio" name="t-pm-${ti}" value="credit" ${t.pm==='credit'?'checked':''} onchange="updateSummary()" class="w-4 h-4 accent-amber-500"> <span class="text-sm">Credit (ادھار)</span>
+            </label>
+          </div>
+        </div>
+      </div>
+      <div class="border-t pt-3">
+        <div class="flex justify-between items-center mb-2">
+          <span class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Trip Expenses</span>
+          <button onclick="addTE(${ti})" class="text-sm text-blue-600 font-medium px-2 py-1 rounded hover:bg-blue-50">+ Add Line</button>
+        </div>
+        <div class="space-y-2">${expRows}</div>
+        <div id="t-tot-${ti}" class="mt-2 text-right text-sm font-semibold text-red-500">Trip Expenses: ${Rs(tot)}</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  const miscHTML = FS.misc.map((x,i)=>`
+    <div class="flex gap-2 items-center">
+      <input id="m-d-${i}" type="text" value="${esc(x.desc)}" placeholder="e.g. Dihadi, Chai, Challan…"
+        class="flex-1 ${INPS}" oninput="updateSummary()">
+      <input id="m-a-${i}" type="number" inputmode="numeric" value="${x.amt||''}" placeholder="0"
+        class="w-28 ${INPS} text-right" oninput="updateSummary()">
+      <button onclick="remMisc(${i})" class="w-9 h-9 flex items-center justify-center text-red-400 hover:text-red-600 shrink-0 rounded-lg hover:bg-red-50 text-lg">✕</button>
+    </div>`).join('');
+
+  // Company expense rows: stacked on mobile
+  const coHTML = (FS.coexp||[]).map((x,i)=>`
+    <div class="border rounded-lg p-3 bg-gray-50 space-y-2">
+      <div class="flex gap-2 items-center">
+        <input id="c-d-${i}" type="text" value="${esc(x.desc)}" placeholder="e.g. Diesel, M.Tag…"
+          class="flex-1 ${INPS}" oninput="updateSummary()">
+        <button onclick="remCoExp(${i})" class="w-9 h-9 flex items-center justify-center text-red-400 hover:text-red-600 shrink-0 rounded-lg hover:bg-red-50 text-lg">✕</button>
+      </div>
+      <div class="flex gap-2 items-center">
+        <div class="flex-1">
+          <label class="text-xs text-gray-400">Qty (Litres)</label>
+          <input id="c-q-${i}" type="number" inputmode="numeric" value="${x.qty||''}" placeholder="0"
+            class="w-full ${INPS} mt-0.5" oninput="coexpSync(${i})">
+        </div>
+        <div class="flex-1">
+          <label class="text-xs text-gray-400">Rate / Litre</label>
+          <input id="c-r-${i}" type="number" inputmode="numeric" value="${x.rate||''}" placeholder="0"
+            class="w-full ${INPS} mt-0.5" oninput="coexpSync(${i})">
+        </div>
+        <div class="flex-1">
+          <label class="text-xs text-gray-400">Total Amount</label>
+          <input id="c-a-${i}" type="number" inputmode="numeric" value="${x.amt||''}" placeholder="0"
+            class="w-full ${INPS} mt-0.5 font-semibold" oninput="updateSummary()">
+        </div>
+      </div>
+    </div>`).join('');
+
+  document.getElementById('view-entry').innerHTML = `
+    <div class="mb-4">
+      <h1 class="text-xl font-bold text-slate-800">${FS.id ? 'Edit Entry' : 'New Daily Entry'}</h1>
+      <p class="text-gray-500 text-sm mt-0.5">Record trips, expenses & daily cash flow</p>
+    </div>
+
+    <div class="bg-white rounded-xl border p-4 mb-4 shadow-sm">
+      <h2 class="font-semibold text-slate-700 mb-3">Day Details</h2>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>
+          <label class="text-xs font-medium text-gray-500">Date</label>
+          <input id="f-date" type="date" value="${FS.date}" class="${INP}">
+        </div>
+        <div>
+          <label class="text-xs font-medium text-gray-500">Driver Name</label>
+          <input id="f-driver" type="text" value="${esc(FS.driver)}" list="drv-list" placeholder="Enter or select" class="${INP}">
+          <datalist id="drv-list">${drvOpts}</datalist>
+        </div>
+        <div>
+          <label class="text-xs font-medium text-gray-500">Driver Previous Cash (Rs.)</label>
+          <input id="f-prev" type="number" inputmode="numeric" value="${FS.prevCash||''}" placeholder="0" class="${INP}" oninput="updateSummary()">
+        </div>
+        <div>
+          <label class="text-xs font-medium text-gray-500">Company Advance (Rs.)</label>
+          <input id="f-adv" type="number" inputmode="numeric" value="${FS.advance||''}" placeholder="0" class="${INP}" oninput="updateSummary()">
+        </div>
+      </div>
+    </div>
+
+    <div class="mb-4">
+      <div class="flex justify-between items-center mb-3">
+        <h2 class="font-semibold text-slate-700">Trips</h2>
+        <button onclick="addTrip()" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-700 shadow-sm">+ Add Trip</button>
+      </div>
+      ${tripsHTML || '<div class="text-center py-10 text-gray-400 bg-white rounded-xl border text-sm">No trips yet. Tap "+ Add Trip" to start.</div>'}
+    </div>
+
+    <div class="bg-white rounded-xl border p-4 mb-4 shadow-sm">
+      <div class="flex justify-between items-center mb-3">
+        <div>
+          <h2 class="font-semibold text-slate-700">Misc Expenses</h2>
+          <p class="text-xs text-gray-400">Batti, Grease, Challan, Dihadi, Chai…</p>
+        </div>
+        <button onclick="addMisc()" class="bg-orange-500 text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-orange-600">+ Add</button>
+      </div>
+      <div class="space-y-2">${miscHTML || '<p class="text-sm text-gray-400">None added.</p>'}</div>
+      ${FS.misc.length ? `<div class="text-right mt-2 text-sm font-semibold text-orange-600">Total: ${Rs(c.miscExp)}</div>` : ''}
+    </div>
+
+    <div class="bg-white rounded-xl border p-4 mb-4 shadow-sm">
+      <div class="flex justify-between items-center mb-3">
+        <div>
+          <h2 class="font-semibold text-slate-700">Company Expenses</h2>
+          <p class="text-xs text-gray-400">Diesel fill-ups, M.Tag, etc.</p>
+        </div>
+        <button onclick="addCoExp()" class="bg-purple-600 text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-purple-700">+ Add</button>
+      </div>
+      <div class="space-y-2">${coHTML || '<p class="text-sm text-gray-400">None added.</p>'}</div>
+      ${(FS.coexp||[]).length ? `<div class="text-right mt-2 text-sm font-semibold text-purple-600">Total: ${Rs(c.coExp)}</div>` : ''}
+    </div>
+
+    <div class="bg-white rounded-xl border p-4 mb-4 shadow-sm">
+      <h2 class="font-semibold text-slate-700 mb-3">Daily Summary</h2>
+      <div class="grid grid-cols-2 gap-3 mb-4">
+        <div class="bg-green-50 border border-green-200 rounded-lg p-3 text-center">
+          <div class="text-xs text-green-600 font-medium uppercase tracking-wide">Total Income</div>
+          <div id="s-inc" class="text-xl font-bold text-green-700 mt-1">${Rs(c.totalInc)}</div>
+        </div>
+        <div class="bg-red-50 border border-red-200 rounded-lg p-3 text-center">
+          <div class="text-xs text-red-600 font-medium uppercase tracking-wide">Total Expenses</div>
+          <div id="s-exp" class="text-xl font-bold text-red-600 mt-1">${Rs(c.totalExp)}</div>
+          <div id="s-exp2" class="text-xs text-red-400 mt-0.5 leading-tight">Trip: ${N(c.tripExp)} · Misc: ${N(c.miscExp)} · Co.: ${N(c.coExp)}</div>
+        </div>
+        <div class="bg-blue-50 border border-blue-200 rounded-lg p-3 text-center">
+          <div class="text-xs text-blue-600 font-medium uppercase tracking-wide">Net Profit</div>
+          <div id="s-prof" class="text-xl font-bold ${c.profit>=0?'text-blue-700':'text-red-600'} mt-1">${Rs(c.profit)}</div>
+        </div>
+        <div class="bg-amber-50 border border-amber-200 rounded-lg p-3 text-center">
+          <div class="text-xs text-amber-600 font-medium uppercase tracking-wide">Driver Cash In</div>
+          <div id="s-drvin" class="text-xl font-bold text-amber-700 mt-1">${Rs(c.drvIn)}</div>
+        </div>
+        <div class="bg-slate-50 border border-slate-200 rounded-lg p-3 text-center col-span-2">
+          <div class="text-xs text-slate-600 font-medium uppercase tracking-wide">Driver Remaining (Carry Forward)</div>
+          <div id="s-drvrem" class="text-xl font-bold ${c.drvRem>=0?'text-amber-700':'text-red-600'} mt-1">${Rs(c.drvRem)}</div>
+        </div>
+      </div>
+      <div>
+        <label class="text-xs font-medium text-gray-500">Notes</label>
+        <textarea id="f-notes" rows="2" placeholder="Any additional notes…" class="${INP} resize-none">${esc(FS.notes||'')}</textarea>
+      </div>
+    </div>
+
+    <div class="flex gap-3 justify-end pb-4">
+      <button onclick="clearForm()" class="flex-1 sm:flex-none px-5 py-3 border rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-100">Clear</button>
+      <button onclick="saveEntry()" class="flex-1 sm:flex-none bg-green-600 text-white px-8 py-3 rounded-xl text-sm font-bold hover:bg-green-700 shadow">Save Entry</button>
+    </div>`;
+}
+
+// ─── DAILY VIEW ─────────────────────────────────────────────
+function renderDaily() {
+  const data = load();
+  const entries = [...data.entries].sort((a,b)=>b.date.localeCompare(a.date));
+  document.getElementById('view-daily').innerHTML = `
+    <div class="mb-4">
+      <h1 class="text-xl font-bold text-slate-800">Daily Ledger</h1>
+      <p class="text-gray-500 text-sm">${entries.length} entries recorded</p>
+    </div>
+    <input type="text" placeholder="Search date, driver or destination…" id="dsearch"
+      class="w-full border rounded-xl px-4 py-3 text-sm mb-4 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-300" oninput="filterDaily(this.value)">
+    <div id="dlist" class="space-y-3">${buildDailyCards(entries)}</div>`;
+}
+
+function buildDailyCards(entries) {
+  if (!entries.length) return '<div class="text-center py-16 text-gray-400 bg-white rounded-xl border">No entries found.</div>';
+  return entries.map(e=>{
+    const c  = calc(e);
+    const d  = new Date(e.date+'T00:00:00');
+    const ds = d.toLocaleDateString('en-PK',{weekday:'short',day:'2-digit',month:'short',year:'numeric'});
+    return `
+    <div class="bg-white rounded-xl border p-4 active:bg-blue-50 transition-colors" onclick="openDay('${e.id}')">
+      <div class="flex justify-between items-start">
+        <div>
+          <div class="font-semibold text-slate-700">${ds}</div>
+          <div class="text-sm text-gray-500 mt-0.5">Driver: <strong>${esc(e.driver)}</strong> · ${e.trips.length} trip(s)</div>
+        </div>
+        <div class="text-right text-sm shrink-0 ml-3">
+          <div class="text-green-600 font-bold">${Rs(c.totalInc)}</div>
+          <div class="text-red-500">Exp: ${Rs(c.totalExp)}</div>
+          <div class="font-bold ${c.profit>=0?'text-blue-700':'text-red-700'}">P: ${Rs(c.profit)}</div>
+        </div>
+      </div>
+      <div class="mt-2 flex gap-1.5 flex-wrap">
+        ${e.trips.map(t=>`<span class="bg-blue-50 text-blue-700 text-xs px-2 py-0.5 rounded-full">${esc(t.dest||'—')}</span>`).join('')}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function filterDaily(q) {
+  q = q.toLowerCase();
+  const entries = load().entries.filter(e=>
+    e.date.includes(q)||e.driver.toLowerCase().includes(q)||
+    e.trips.some(t=>(t.dest||'').toLowerCase().includes(q))
+  ).sort((a,b)=>b.date.localeCompare(a.date));
+  document.getElementById('dlist').innerHTML = buildDailyCards(entries);
+}
+
+function openDay(id) {
+  const e = load().entries.find(x=>x.id===id);
+  if (!e) return;
+  const c  = calc(e);
+  const d  = new Date(e.date+'T00:00:00');
+  const ds = d.toLocaleDateString('en-PK',{weekday:'long',day:'2-digit',month:'long',year:'numeric'});
+
+  // Mobile-friendly trip cards instead of a wide table
+  const tripCards = e.trips.map((t,i)=>{
+    const te = t.exp.reduce((s,x)=>s+(+x.amt||0),0);
+    const eb = t.exp.filter(x=>+x.amt>0).map(x=>`${x.desc}: ${N(x.amt)}`).join(' · ');
+    return `
+    <div class="border rounded-lg p-3 mb-2">
+      <div class="flex justify-between items-start mb-1">
+        <div>
+          <span class="text-xs text-gray-400 font-medium">Trip ${i+1}</span>
+          <div class="font-semibold text-slate-700 text-sm">${esc(t.dest)}</div>
+          ${t.cust ? `<div class="text-xs text-gray-500">${esc(t.cust)}</div>` : ''}
+        </div>
+        <span class="text-xs px-2 py-1 rounded-full shrink-0 ml-2 ${t.pm==='cash'?'bg-green-100 text-green-700':'bg-amber-100 text-amber-700'}">${t.pm==='cash'?'Cash':'Credit'}</span>
+      </div>
+      <div class="flex justify-between items-center mt-2 pt-2 border-t">
+        <div class="text-xs text-gray-400">${eb||'No expenses'}</div>
+        <div class="text-right shrink-0 ml-2">
+          <div class="text-sm font-bold text-green-600">${Rs(t.income)}</div>
+          <div class="text-xs text-red-500">Exp: ${Rs(te)}</div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  const miscRows = e.misc.filter(x=>+x.amt>0).map(x=>`
+    <div class="flex justify-between text-sm py-1">
+      <span class="text-gray-600">${esc(x.desc)}</span>
+      <span class="font-medium">${Rs(x.amt)}</span>
+    </div>`).join('');
+
+  const coRows = (e.coexp||[]).filter(x=>+x.amt>0).map(x=>`
+    <div class="flex justify-between text-sm py-1">
+      <span class="text-gray-600">${esc(x.desc)}${x.qty?` (${x.qty}${x.rate?' @ Rs.'+N(x.rate):''})`:''}</span>
+      <span class="font-medium">${Rs(x.amt)}</span>
+    </div>`).join('');
+
+  document.getElementById('day-modal-body').innerHTML = `
+    <div class="p-4 md:p-6">
+      <!-- Header -->
+      <div class="flex justify-between items-start mb-4 pb-4 border-b">
+        <div>
+          <div class="text-xs font-bold text-amber-600 uppercase tracking-widest">AlAwal Transit</div>
+          <h2 class="text-lg font-bold text-slate-800 mt-1 leading-tight">${ds}</h2>
+          <div class="text-gray-500 text-sm mt-0.5">Driver: <span class="font-semibold text-slate-700">${esc(e.driver)}</span></div>
+        </div>
+        <button onclick="closeModal()" class="no-print text-gray-400 hover:text-gray-700 text-3xl leading-none shrink-0 ml-3 -mt-1">&times;</button>
+      </div>
+
+      <!-- Action buttons -->
+      <div class="no-print flex gap-2 mb-4 flex-wrap">
+        <button onclick="editDay('${id}')" class="flex-1 border px-3 py-2.5 rounded-lg text-sm font-medium hover:bg-gray-50 text-center">Edit</button>
+        <button onclick="delDay('${id}')" class="flex-1 border border-red-200 text-red-500 px-3 py-2.5 rounded-lg text-sm font-medium hover:bg-red-50 text-center">Delete</button>
+        <button onclick="window.print()" class="flex-1 bg-slate-700 text-white px-3 py-2.5 rounded-lg text-sm font-medium hover:bg-slate-800 text-center">Print</button>
+      </div>
+
+      <!-- Cash flow -->
+      <div class="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4 text-sm leading-relaxed">
+        <span class="font-semibold text-amber-700">Driver Cash:</span>
+        Prev ${Rs(e.prevCash)}${+e.advance?` + Adv ${Rs(e.advance)}`:''} + Cash Inc ${Rs(c.cashInc)}
+        <span class="font-bold text-amber-700"> = ${Rs(c.drvIn)}</span>
+      </div>
+
+      <!-- Trip Cards -->
+      <h3 class="font-semibold text-slate-700 mb-2">Trips</h3>
+      ${tripCards}
+      <div class="flex justify-between text-sm font-semibold mt-1 mb-4 bg-gray-50 rounded-lg px-3 py-2">
+        <span>Total Income</span><span class="text-green-600">${Rs(c.totalInc)}</span>
+      </div>
+      <div class="flex justify-between text-sm font-semibold mb-5 bg-gray-50 rounded-lg px-3 py-2">
+        <span>Total Trip Expenses</span><span class="text-red-500">${Rs(c.tripExp)}</span>
+      </div>
+
+      <!-- Misc + Company exp -->
+      <div class="grid sm:grid-cols-2 gap-4 mb-4">
+        ${miscRows ? `<div>
+          <h3 class="font-semibold text-slate-700 mb-2">Misc Expenses</h3>
+          <div class="bg-orange-50 border border-orange-100 rounded-lg p-3">
+            ${miscRows}
+            <div class="flex justify-between font-bold text-sm pt-2 mt-1 border-t border-orange-200">
+              <span>Total</span><span class="text-orange-600">${Rs(c.miscExp)}</span>
+            </div>
+          </div>
+        </div>` : ''}
+        ${coRows ? `<div>
+          <h3 class="font-semibold text-slate-700 mb-2">Company Expenses</h3>
+          <div class="bg-purple-50 border border-purple-100 rounded-lg p-3">
+            ${coRows}
+            <div class="flex justify-between font-bold text-sm pt-2 mt-1 border-t border-purple-200">
+              <span>Total</span><span class="text-purple-600">${Rs(c.coExp)}</span>
+            </div>
+          </div>
+        </div>` : ''}
+      </div>
+
+      <!-- Bottom summary bar -->
+      <div class="grid grid-cols-2 gap-2 bg-slate-800 text-white rounded-xl p-3">
+        <div class="text-center p-1">
+          <div class="text-xs text-slate-400 uppercase tracking-wide">Income</div>
+          <div class="text-lg font-bold text-green-400">${Rs(c.totalInc)}</div>
+        </div>
+        <div class="text-center p-1">
+          <div class="text-xs text-slate-400 uppercase tracking-wide">Expenses</div>
+          <div class="text-lg font-bold text-red-400">${Rs(c.totalExp)}</div>
+        </div>
+        <div class="text-center p-1">
+          <div class="text-xs text-slate-400 uppercase tracking-wide">Net Profit</div>
+          <div class="text-lg font-bold ${c.profit>=0?'text-blue-300':'text-red-400'}">${Rs(c.profit)}</div>
+        </div>
+        <div class="text-center p-1">
+          <div class="text-xs text-slate-400 uppercase tracking-wide">Driver Remaining</div>
+          <div class="text-lg font-bold text-amber-300">${Rs(c.drvRem)}</div>
+        </div>
+      </div>
+
+      ${e.notes ? `<div class="text-sm text-gray-500 mt-3"><span class="font-medium text-gray-700">Notes:</span> ${esc(e.notes)}</div>` : ''}
+      <div class="h-6"></div>
+    </div>`;
+
+  document.getElementById('day-modal').classList.remove('hidden');
+  document.getElementById('day-modal').scrollTop = 0;
+}
+
+function closeModal() { document.getElementById('day-modal').classList.add('hidden'); }
+
+function editDay(id) {
+  const e = load().entries.find(x=>x.id===id);
+  if (!e) return;
+  FS = JSON.parse(JSON.stringify(e));
+  closeModal();
+  showView('entry');
+}
+
+async function delDay(id) {
+  if (!confirm('Delete this entry permanently?')) return;
+  appData.entries = appData.entries.filter(e=>e.id!==id);
+  cache();
+  closeModal();
+  renderDaily();
+  setSyncStatus('syncing');
+  try {
+    await apiFetch('entries', { method:'DELETE', body:{ id } });
+    setSyncStatus('ok');
+  } catch(e) { setSyncStatus('error'); console.warn('Delete failed:', e); }
+}
+
+// ─── MONTHLY DASHBOARD ──────────────────────────────────────
+let mCharts = {};
+
+function renderMonthly() {
+  const now = new Date();
+  const def = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+  document.getElementById('view-monthly').innerHTML = `
+    <div class="flex justify-between items-center mb-4">
+      <h1 class="text-xl font-bold text-slate-800">Monthly Dashboard</h1>
+      <input type="month" id="mpick" value="${def}" class="border rounded-lg px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-300" onchange="buildMonthly(this.value)">
+    </div>
+    <div id="mcontent"></div>`;
+  buildMonthly(def);
+}
+
+function buildMonthly(month) {
+  const data = load();
+  const entries = data.entries.filter(e=>e.date.startsWith(month)).sort((a,b)=>a.date.localeCompare(b.date));
+  Object.values(mCharts).forEach(c=>{try{c.destroy();}catch{}});
+  mCharts = {};
+
+  if (!entries.length) {
+    document.getElementById('mcontent').innerHTML = '<div class="text-center py-16 text-gray-400 bg-white rounded-xl border">No entries for this month.</div>';
+    return;
+  }
+
+  const tot = entries.reduce((a,e)=>{
+    const c=calc(e); a.inc+=c.totalInc; a.exp+=c.totalExp; a.prof+=c.profit; a.trips+=e.trips.length; return a;
+  },{inc:0,exp:0,prof:0,trips:0});
+
+  const dmap = {};
+  entries.forEach(e=>{
+    const c=calc(e);
+    if (!dmap[e.driver]) dmap[e.driver]={inc:0,exp:0,prof:0,trips:0,days:0};
+    dmap[e.driver].inc+=c.totalInc; dmap[e.driver].exp+=c.totalExp;
+    dmap[e.driver].prof+=c.profit; dmap[e.driver].trips+=e.trips.length; dmap[e.driver].days++;
+  });
+
+  // Driver cards (mobile-friendly, no wide table)
+  const driverCards = Object.entries(dmap).map(([drv,d])=>`
+    <div class="border rounded-lg p-3">
+      <div class="font-semibold text-slate-700 mb-2">${esc(drv)} <span class="text-xs text-gray-400 font-normal">${d.days} days · ${d.trips} trips</span></div>
+      <div class="grid grid-cols-3 gap-2 text-center text-sm">
+        <div><div class="text-xs text-gray-400">Income</div><div class="font-bold text-green-600">${Rs(d.inc)}</div></div>
+        <div><div class="text-xs text-gray-400">Expenses</div><div class="font-bold text-red-500">${Rs(d.exp)}</div></div>
+        <div><div class="text-xs text-gray-400">Profit</div><div class="font-bold ${d.prof>=0?'text-blue-700':'text-red-700'}">${Rs(d.prof)}</div></div>
+      </div>
+    </div>`).join('');
+
+  // Daily breakdown cards
+  const dayCards = entries.map(e=>{
+    const c=calc(e);
+    const ds=new Date(e.date+'T00:00:00').toLocaleDateString('en-PK',{weekday:'short',day:'2-digit',month:'short'});
+    return `
+    <div class="flex justify-between items-center py-2.5 px-3 border-b last:border-b-0 active:bg-blue-50 cursor-pointer"
+      onclick="showView('daily');setTimeout(()=>openDay('${e.id}'),80)">
+      <div>
+        <div class="text-sm font-medium text-slate-700">${ds}</div>
+        <div class="text-xs text-gray-400">${esc(e.driver)} · ${e.trips.length} trips</div>
+      </div>
+      <div class="text-right text-sm">
+        <div class="text-green-600 font-medium">${Rs(c.totalInc)}</div>
+        <div class="font-bold ${c.profit>=0?'text-blue-700':'text-red-700'}">${Rs(c.profit)}</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('mcontent').innerHTML = `
+    <div class="grid grid-cols-2 gap-3 mb-4">
+      <div class="bg-white rounded-xl border p-3 text-center shadow-sm">
+        <div class="text-xs text-gray-500 uppercase tracking-wide font-medium">Total Income</div>
+        <div class="text-xl font-bold text-green-600 mt-1">${Rs(tot.inc)}</div>
+      </div>
+      <div class="bg-white rounded-xl border p-3 text-center shadow-sm">
+        <div class="text-xs text-gray-500 uppercase tracking-wide font-medium">Total Expenses</div>
+        <div class="text-xl font-bold text-red-500 mt-1">${Rs(tot.exp)}</div>
+      </div>
+      <div class="bg-white rounded-xl border p-3 text-center shadow-sm">
+        <div class="text-xs text-gray-500 uppercase tracking-wide font-medium">Net Profit</div>
+        <div class="text-xl font-bold ${tot.prof>=0?'text-blue-700':'text-red-600'} mt-1">${Rs(tot.prof)}</div>
+      </div>
+      <div class="bg-white rounded-xl border p-3 text-center shadow-sm">
+        <div class="text-xs text-gray-500 uppercase tracking-wide font-medium">Trips</div>
+        <div class="text-xl font-bold text-amber-600 mt-1">${tot.trips}</div>
+        <div class="text-xs text-gray-400">${entries.length} days</div>
+      </div>
+    </div>
+
+    <div class="grid sm:grid-cols-2 gap-4 mb-4">
+      <div class="bg-white rounded-xl border p-4 shadow-sm">
+        <h3 class="font-semibold text-slate-700 mb-3 text-sm">Income vs Expenses</h3>
+        <canvas id="ch-bar"></canvas>
+      </div>
+      <div class="bg-white rounded-xl border p-4 shadow-sm">
+        <h3 class="font-semibold text-slate-700 mb-3 text-sm">Profit Trend</h3>
+        <canvas id="ch-line"></canvas>
+      </div>
+    </div>
+
+    <div class="bg-white rounded-xl border shadow-sm mb-4">
+      <div class="p-3 border-b font-semibold text-slate-700">Driver Summary</div>
+      <div class="p-3 space-y-2">${driverCards}</div>
+    </div>
+
+    <div class="bg-white rounded-xl border shadow-sm">
+      <div class="p-3 border-b flex justify-between items-center">
+        <span class="font-semibold text-slate-700">Daily Breakdown</span>
+        <span class="text-xs text-gray-400">Tap row for detail</span>
+      </div>
+      ${dayCards}
+      <div class="flex justify-between items-center py-2.5 px-3 bg-amber-50 font-semibold text-sm border-t-2">
+        <span>Month Total</span>
+        <div class="text-right">
+          <div class="text-green-600">${Rs(tot.inc)}</div>
+          <div class="${tot.prof>=0?'text-blue-700':'text-red-700'}">${Rs(tot.prof)}</div>
+        </div>
+      </div>
+    </div>`;
+
+  const labels = entries.map(e=>new Date(e.date+'T00:00:00').toLocaleDateString('en-PK',{day:'2-digit',month:'short'}));
+  mCharts.bar = new Chart(document.getElementById('ch-bar'),{
+    type:'bar', data:{ labels,
+      datasets:[
+        {label:'Income',   data:entries.map(e=>calc(e).totalInc), backgroundColor:'rgba(34,197,94,0.7)',  borderColor:'#16a34a', borderWidth:1},
+        {label:'Expenses', data:entries.map(e=>calc(e).totalExp), backgroundColor:'rgba(239,68,68,0.7)', borderColor:'#dc2626', borderWidth:1}
+      ]},
+    options:{responsive:true, plugins:{legend:{position:'top',labels:{boxWidth:12,font:{size:11}}}}, scales:{y:{beginAtZero:true,ticks:{font:{size:10}}}}}
+  });
+  mCharts.line = new Chart(document.getElementById('ch-line'),{
+    type:'line', data:{ labels,
+      datasets:[{
+        label:'Profit', data:entries.map(e=>calc(e).profit),
+        backgroundColor:'rgba(59,130,246,0.1)', borderColor:'#3b82f6', borderWidth:2, fill:true, tension:0.3,
+        pointBackgroundColor:entries.map(e=>calc(e).profit>=0?'#3b82f6':'#ef4444'), pointRadius:4
+      }]},
+    options:{responsive:true, plugins:{legend:{position:'top',labels:{boxWidth:12,font:{size:11}}}}, scales:{y:{beginAtZero:false,ticks:{font:{size:10}}}}}
+  });
+}
+
+// ─── VIEW SWITCHING ─────────────────────────────────────────
+function showView(name) {
+  document.querySelectorAll('.view').forEach(v=>v.classList.add('hidden'));
+  document.getElementById('view-'+name).classList.remove('hidden');
+  // Desktop nav
+  document.querySelectorAll('.nav-btn').forEach(b=>{
+    const on = b.dataset.view===name;
+    b.className = `nav-btn px-4 py-2 rounded-lg text-sm font-medium transition-colors ${on?'bg-amber-500 text-slate-900':'text-slate-300 hover:bg-slate-700'}`;
+  });
+  // Mobile bottom tabs
+  document.querySelectorAll('.tab-btn').forEach(b=>{
+    const on = b.dataset.tab===name;
+    b.className = `tab-btn flex-1 py-3 flex flex-col items-center gap-0.5 transition-colors ${on?'text-amber-400':'text-slate-400'}`;
+  });
+  window.scrollTo(0,0);
+  if (name==='daily')   renderDaily();
+  if (name==='monthly') renderMonthly();
+}
+
+// ─── EXPORT / IMPORT ────────────────────────────────────────
+function exportData() {
+  const date = new Date().toISOString().slice(0,10);
+  const blob = new Blob([JSON.stringify(appData, null, 2)], { type:'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `alawal-ledger-${date}.json`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+async function importData(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = async e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (!Array.isArray(data.entries)) { alert('Invalid file.'); return; }
+      if (!confirm(`Import ${data.entries.length} entries? This will REPLACE all current data.`)) return;
+      appData = data;
+      cache();
+      setSyncStatus('syncing');
+      try {
+        for (const entry of data.entries) await apiFetch('entries', { method:'POST', body:entry });
+        for (const drv of (data.drivers||[])) await apiFetch('drivers', { method:'POST', body:{ name:drv } });
+        setSyncStatus('ok');
+        alert(`Imported ${data.entries.length} entries and synced to database.`);
+      } catch(e) {
+        setSyncStatus('error');
+        alert(`Imported locally but database sync incomplete: ${e.message}`);
+      }
+      FS = blankFS(); renderForm(); showView('entry');
+    } catch { alert('Invalid JSON file.'); }
+  };
+  reader.readAsText(file);
+  event.target.value = '';
+}
+
+// ─── ESCAPE ─────────────────────────────────────────────────
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// ─── INIT ───────────────────────────────────────────────────
+FS = blankFS();
+renderForm();
+showView('entry');
+initData();
+</script>
+</body>
+</html>

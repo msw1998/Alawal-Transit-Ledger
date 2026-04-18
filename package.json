@@ -1,0 +1,8 @@
+{
+  "name": "alawal-transit-ledger",
+  "version": "1.0.0",
+  "description": "Daily ledger for AlAwal Transit",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.0"
+  }
+}

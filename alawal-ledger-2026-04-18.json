@@ -1,0 +1,228 @@
+{
+  "entries": [
+    {
+      "id": "mo4kpiqoxvtfskawuw",
+      "date": "2026-04-17",
+      "driver": "Nazir",
+      "prevCash": 750,
+      "advance": 0,
+      "trips": [
+        {
+          "id": "mo4kj6044p7szfpc1d6",
+          "dest": "Sohrab Goth Stock",
+          "cust": "Hafiz Bhai",
+          "income": 65000,
+          "pm": "cash",
+          "exp": [
+            {
+              "desc": "Route Card",
+              "amt": 18950
+            },
+            {
+              "desc": "Grease",
+              "amt": 0
+            },
+            {
+              "desc": "Challan",
+              "amt": 0
+            },
+            {
+              "desc": "Dihadi",
+              "amt": 0
+            }
+          ]
+        },
+        {
+          "id": "mo4kmz4d49c49zb7oj9",
+          "dest": "Al Rafiq Construction",
+          "cust": "Krystalite",
+          "income": 87500,
+          "pm": "credit",
+          "exp": [
+            {
+              "desc": "Expense",
+              "amt": 18500
+            }
+          ]
+        }
+      ],
+      "misc": [
+        {
+          "desc": "Challan",
+          "amt": 750
+        },
+        {
+          "desc": "Rent",
+          "amt": 500
+        },
+        {
+          "desc": "Diesel",
+          "amt": 1000
+        },
+        {
+          "desc": "Diesel (Irani Kathore)",
+          "amt": 20000
+        },
+        {
+          "desc": "Chabi",
+          "amt": 300
+        },
+        {
+          "desc": "",
+          "amt": 0
+        }
+      ],
+      "coexp": [],
+      "notes": ""
+    },
+    {
+      "id": "mo4kz85ncv143x0l4hu",
+      "date": "2026-04-11",
+      "driver": "Sher Bahadur",
+      "prevCash": 8950,
+      "advance": 30000,
+      "trips": [
+        {
+          "id": "mo4ktrlgw5ksysk51",
+          "dest": "Gulshan e Maymar K-230",
+          "cust": "Ahmed Hassan",
+          "income": 11000,
+          "pm": "credit",
+          "exp": [
+            {
+              "desc": "Route Card",
+              "amt": 2800
+            }
+          ]
+        },
+        {
+          "id": "mo4kuvpt5z2a834zzh6",
+          "dest": "Umer Rasheed Stock",
+          "cust": "Sohrab Goth",
+          "income": 7800,
+          "pm": "credit",
+          "exp": [
+            {
+              "desc": "Misc ",
+              "amt": 19300
+            }
+          ]
+        },
+        {
+          "id": "mo4kwmmv1v9p2meyd6z",
+          "dest": "Gulshan e Maymar",
+          "cust": "Ahmed Hassan",
+          "income": 15000,
+          "pm": "credit",
+          "exp": [
+            {
+              "desc": "Misc",
+              "amt": 4500
+            }
+          ]
+        }
+      ],
+      "misc": [
+        {
+          "desc": "Rent",
+          "amt": 700
+        },
+        {
+          "desc": "jabi hawa",
+          "amt": 100
+        },
+        {
+          "desc": "Dihadi",
+          "amt": 5000
+        },
+        {
+          "desc": "",
+          "amt": 0
+        }
+      ],
+      "coexp": [],
+      "notes": ""
+    },
+    {
+      "id": "mo4l5sltkmmi9v4vonk",
+      "date": "2026-04-09",
+      "driver": "Nazir",
+      "prevCash": 10500,
+      "advance": 0,
+      "trips": [
+        {
+          "id": "mo4kzzli5klslqf69wn",
+          "dest": "Sohrab Goth",
+          "cust": "Abdul Rahim",
+          "income": 72000,
+          "pm": "cash",
+          "exp": [
+            {
+              "desc": "Trip Expense",
+              "amt": 19950
+            }
+          ]
+        },
+        {
+          "id": "mo4l0kdbogryxh3z5n",
+          "dest": "Sohrab Goth ",
+          "cust": "Malik Ateeq",
+          "income": 84000,
+          "pm": "credit",
+          "exp": [
+            {
+              "desc": "Trip Expense",
+              "amt": 21400
+            }
+          ]
+        },
+        {
+          "id": "mo4l2uu8fg5z16but7k",
+          "dest": "Sohrab Goth ",
+          "cust": "Amanullah",
+          "income": 70000,
+          "pm": "credit",
+          "exp": [
+            {
+              "desc": "Trip Expense",
+              "amt": 21500
+            }
+          ]
+        }
+      ],
+      "misc": [
+        {
+          "desc": "Polish",
+          "amt": 2500
+        },
+        {
+          "desc": "Grease",
+          "amt": 1000
+        },
+        {
+          "desc": "Challan",
+          "amt": 1500
+        },
+        {
+          "desc": "Dihadi",
+          "amt": 5000
+        },
+        {
+          "desc": "Hawa",
+          "amt": 950
+        },
+        {
+          "desc": "",
+          "amt": 0
+        }
+      ],
+      "coexp": [],
+      "notes": ""
+    }
+  ],
+  "drivers": [
+    "Nazir",
+    "Sheer Haider",
+    "Sher Bahadur"
+  ]
+}
