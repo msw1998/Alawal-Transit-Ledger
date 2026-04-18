@@ -127,7 +127,7 @@ const Rs = n => 'Rs. ' + (n||0).toLocaleString('en-PK');
 const N  = n => (n||0).toLocaleString('en-PK');
 
 function calc(e) {
-  const cashInc  = e.trips.filter(t=>t.pm==='cash').reduce((s,t)=>s+(+t.income||0),0);
+  const cashInc  = e.trips.reduce((s,t)=> t.pm==='cash' ? s+(+t.income||0) : t.pm==='partial' ? s+(+t.cashAmt||0) : s, 0);
   const totalInc = e.trips.reduce((s,t)=>s+(+t.income||0),0);
   const tripExp  = e.trips.reduce((s,t)=>s+t.exp.reduce((ss,x)=>ss+(+x.amt||0),0),0);
   const miscExp  = e.misc.reduce((s,x)=>s+(+x.amt||0),0);
@@ -160,6 +160,7 @@ function readDOM() {
     t.income = +(g(`t-inc-${ti}`)||{}).value||0;
     const r  = document.querySelector(`input[name="t-pm-${ti}"]:checked`);
     if (r) t.pm = r.value;
+    t.cashAmt = +(g(`t-cash-${ti}`)||{}).value||0;
     t.exp.forEach((x,ei)=>{
       x.desc = (g(`t-ed-${ti}-${ei}`)||{}).value||x.desc||'';
       x.amt  = +(g(`t-ea-${ti}-${ei}`)||{}).value||0;
@@ -210,7 +211,16 @@ function updateSummary() {
     const tot = t.exp.reduce((s,x)=>s+(+x.amt||0),0);
     const e2  = document.getElementById(`t-tot-${ti}`);
     if (e2) e2.textContent = `Trip Expenses: ${Rs(tot)}`;
+    const cr = document.getElementById(`t-credit-${ti}`);
+    if (cr) cr.textContent = `Rs. ${Math.max(0,(t.income||0)-(t.cashAmt||0)).toLocaleString('en-PK')}`;
   });
+}
+
+function togglePartial(ti) {
+  const pm  = document.querySelector(`input[name="t-pm-${ti}"]:checked`)?.value;
+  const div = document.getElementById(`t-partial-${ti}`);
+  if (div) div.classList.toggle('hidden', pm !== 'partial');
+  updateSummary();
 }
 
 async function saveEntry() {
@@ -240,6 +250,12 @@ function getClients() {
   return [...s].sort();
 }
 
+function getLocations() {
+  const s = new Set();
+  appData.entries.forEach(e => e.trips.forEach(t => { if (t.dest?.trim()) s.add(t.dest.trim()); }));
+  return [...s].sort();
+}
+
 // ─── RENDER FORM ────────────────────────────────────────────
 const INP  = 'w-full border rounded-lg px-3 py-2.5 text-sm mt-1 focus:outline-none focus:ring-2 focus:ring-blue-300';
 const INPS = 'border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300';
@@ -248,8 +264,9 @@ function renderForm() {
   if (!FS) FS = blankFS();
   const data = load();
   const c = calc(FS);
-  const drvOpts = data.drivers.map(d=>`<option value="${esc(d)}">`).join('');
-  const clientOpts = getClients().map(c=>`<option value="${esc(c)}">`).join('');
+  const drvOpts     = data.drivers.map(d=>`<option value="${esc(d)}">`).join('');
+  const clientOpts  = getClients().map(c=>`<option value="${esc(c)}">`).join('');
+  const locationOpts= getLocations().map(l=>`<option value="${esc(l)}">`).join('');
 
   const tripsHTML = FS.trips.map((t,ti)=>{
     const tot = t.exp.reduce((s,x)=>s+(+x.amt||0),0);
@@ -271,7 +288,8 @@ function renderForm() {
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
         <div>
           <label class="text-xs font-medium text-gray-500">Destination / Location</label>
-          <input id="t-dest-${ti}" type="text" value="${esc(t.dest)}" placeholder="e.g. Sohrab Goth Stock" class="${INP}" oninput="updateSummary()">
+          <input id="t-dest-${ti}" type="text" value="${esc(t.dest)}" placeholder="e.g. Sohrab Goth Stock" list="loc-list" class="${INP}" oninput="updateSummary()">
+          <datalist id="loc-list">${locationOpts}</datalist>
         </div>
         <div>
           <label class="text-xs font-medium text-gray-500">Customer / Party</label>
@@ -286,13 +304,21 @@ function renderForm() {
         </div>
         <div>
           <label class="text-xs font-medium text-gray-500">Payment Mode</label>
-          <div class="flex gap-4 mt-2.5">
+          <div class="flex flex-wrap gap-3 mt-2.5">
             <label class="flex items-center gap-2 cursor-pointer">
-              <input type="radio" name="t-pm-${ti}" value="cash" ${t.pm==='cash'?'checked':''} onchange="updateSummary()" class="w-4 h-4 accent-green-600"> <span class="text-sm">Cash (نقد)</span>
+              <input type="radio" name="t-pm-${ti}" value="cash" ${t.pm==='cash'?'checked':''} onchange="togglePartial(${ti})" class="w-4 h-4 accent-green-600"> <span class="text-sm">Cash (نقد)</span>
             </label>
             <label class="flex items-center gap-2 cursor-pointer">
-              <input type="radio" name="t-pm-${ti}" value="credit" ${t.pm==='credit'?'checked':''} onchange="updateSummary()" class="w-4 h-4 accent-amber-500"> <span class="text-sm">Credit (ادھار)</span>
+              <input type="radio" name="t-pm-${ti}" value="credit" ${t.pm==='credit'?'checked':''} onchange="togglePartial(${ti})" class="w-4 h-4 accent-amber-500"> <span class="text-sm">Credit (ادھار)</span>
             </label>
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="radio" name="t-pm-${ti}" value="partial" ${t.pm==='partial'?'checked':''} onchange="togglePartial(${ti})" class="w-4 h-4 accent-blue-600"> <span class="text-sm">Partial (جزوی)</span>
+            </label>
+          </div>
+          <div id="t-partial-${ti}" class="${t.pm==='partial'?'mt-2':'hidden'}">
+            <label class="text-xs font-medium text-gray-500">Cash Received by Driver (Rs.)</label>
+            <input id="t-cash-${ti}" type="number" inputmode="numeric" value="${t.cashAmt||''}" placeholder="0" class="${INP}" oninput="updateSummary()">
+            <div class="text-xs text-amber-600 mt-1">Credit remaining for client: Rs. <span id="t-credit-${ti}">${Math.max(0,(+t.income||0)-(+t.cashAmt||0)).toLocaleString('en-PK')}</span></div>
           </div>
         </div>
       </div>
@@ -509,7 +535,7 @@ function openDay(id) {
           <div class="font-semibold text-slate-700 text-sm">${esc(t.dest)}</div>
           ${t.cust ? `<div class="text-xs text-gray-500">${esc(t.cust)}</div>` : ''}
         </div>
-        <span class="text-xs px-2 py-1 rounded-full shrink-0 ml-2 ${t.pm==='cash'?'bg-green-100 text-green-700':'bg-amber-100 text-amber-700'}">${t.pm==='cash'?'Cash':'Credit'}</span>
+        <span class="text-xs px-2 py-1 rounded-full shrink-0 ml-2 ${t.pm==='cash'?'bg-green-100 text-green-700':t.pm==='partial'?'bg-blue-100 text-blue-700':'bg-amber-100 text-amber-700'}">${t.pm==='cash'?'Cash':t.pm==='partial'?`Partial (Cash: ${Rs(t.cashAmt||0)})` :'Credit'}</span>
       </div>
       <div class="flex justify-between items-center mt-2 pt-2 border-t">
         <div class="text-xs text-gray-400">${eb||'No expenses'}</div>
