@@ -177,7 +177,7 @@ function readDOM() {
   });
 }
 
-function addTrip()    { readDOM(); FS.trips.push({id:uid(),dest:'',cust:'',income:0,pm:'cash',exp:[{desc:'Misc Trip Expense',amt:0}]}); renderForm(); }
+function addTrip()    { readDOM(); FS.trips.push({id:uid(),dest:'',cust:'',income:0,pm:'cash',exp:[{desc:'Jhampir Dhakka Loading',amt:0},{desc:'Royalty',amt:0},{desc:'Driver Trip Commission',amt:0}]}); renderForm(); }
 function remTrip(i)   { readDOM(); FS.trips.splice(i,1); renderForm(); }
 function addTE(ti)    { readDOM(); FS.trips[ti].exp.push({desc:'',amt:0}); renderForm(); }
 function remTE(ti,ei) { readDOM(); FS.trips[ti].exp.splice(ei,1); renderForm(); }
@@ -234,6 +234,12 @@ async function saveEntry() {
 
 function clearForm() { if(confirm('Clear the form?')) { FS=blankFS(); renderForm(); } }
 
+function getClients() {
+  const s = new Set();
+  appData.entries.forEach(e => e.trips.forEach(t => { if (t.cust?.trim()) s.add(t.cust.trim()); }));
+  return [...s].sort();
+}
+
 // ─── RENDER FORM ────────────────────────────────────────────
 const INP  = 'w-full border rounded-lg px-3 py-2.5 text-sm mt-1 focus:outline-none focus:ring-2 focus:ring-blue-300';
 const INPS = 'border rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300';
@@ -243,6 +249,7 @@ function renderForm() {
   const data = load();
   const c = calc(FS);
   const drvOpts = data.drivers.map(d=>`<option value="${esc(d)}">`).join('');
+  const clientOpts = getClients().map(c=>`<option value="${esc(c)}">`).join('');
 
   const tripsHTML = FS.trips.map((t,ti)=>{
     const tot = t.exp.reduce((s,x)=>s+(+x.amt||0),0);
@@ -268,7 +275,8 @@ function renderForm() {
         </div>
         <div>
           <label class="text-xs font-medium text-gray-500">Customer / Party</label>
-          <input id="t-cust-${ti}" type="text" value="${esc(t.cust)}" placeholder="e.g. Abdul Rahim" class="${INP}" oninput="updateSummary()">
+          <input id="t-cust-${ti}" type="text" value="${esc(t.cust)}" placeholder="e.g. Abdul Rahim" list="cust-list" class="${INP}" oninput="updateSummary()">
+          <datalist id="cust-list">${clientOpts}</datalist>
         </div>
       </div>
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
@@ -788,6 +796,7 @@ function showView(name) {
     b.className = `tab-btn flex-1 py-3 flex flex-col items-center gap-0.5 transition-colors ${on?'text-amber-400':'text-slate-400'}`;
   });
   window.scrollTo(0,0);
+  if (name==='entry')   renderForm();
   if (name==='daily')   renderDaily();
   if (name==='monthly') renderMonthly();
 }
