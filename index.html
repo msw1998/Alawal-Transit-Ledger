@@ -4,8 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>AlAwal Transit — Daily Ledger</title>
+<link rel="icon" type="image/png" href="AlawalTransit Logo.png">
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
 /* Prevent iOS input zoom */
 input, select, textarea { font-size: 16px !important; }
@@ -21,7 +23,7 @@ input, select, textarea { font-size: 16px !important; }
 <!-- TOP NAV -->
 <nav class="bg-slate-900 text-white px-4 py-3 flex items-center justify-between no-print sticky top-0 z-40 shadow-lg">
   <div class="flex items-center gap-3">
-    <div class="w-9 h-9 bg-amber-500 rounded-full flex items-center justify-center font-bold text-slate-900 text-sm shrink-0">AT</div>
+    <img src="AlawalTransit Logo.png" alt="AlAwal Transit" class="h-9 w-9 rounded-full object-cover shrink-0">
     <div>
       <div class="font-bold text-base leading-tight">AlAwal Transit</div>
       <div class="text-xs text-slate-400 leading-tight hidden sm:block">Daily Ledger System</div>
@@ -35,8 +37,7 @@ input, select, textarea { font-size: 16px !important; }
     <div class="w-px h-5 bg-slate-600 mx-1"></div>
     <span class="sync-status text-xs font-medium text-slate-400 min-w-16 text-right"></span>
     <div class="w-px h-5 bg-slate-600 mx-1"></div>
-    <button onclick="exportData()" class="px-3 py-2 rounded-lg text-sm font-medium text-amber-400 hover:bg-slate-700 transition-colors" title="Export all data as JSON">↓ Export</button>
-    <label class="px-3 py-2 rounded-lg text-sm font-medium text-slate-300 hover:bg-slate-700 transition-colors cursor-pointer" title="Import JSON backup">↑ Import<input type="file" accept=".json" class="hidden" onchange="importData(event)"></label>
+    <button onclick="exportData()" class="px-3 py-2 rounded-lg text-sm font-medium text-amber-400 hover:bg-slate-700 transition-colors" title="Export to Excel">↓ Export Excel</button>
   </div>
 </nav>
 
@@ -791,43 +792,64 @@ function showView(name) {
   if (name==='monthly') renderMonthly();
 }
 
-// ─── EXPORT / IMPORT ────────────────────────────────────────
+// ─── EXPORT TO EXCEL ────────────────────────────────────────
 function exportData() {
-  const date = new Date().toISOString().slice(0,10);
-  const blob = new Blob([JSON.stringify(appData, null, 2)], { type:'application/json' });
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = `alawal-ledger-${date}.json`;
-  a.click();
-  URL.revokeObjectURL(a.href);
-}
+  const wb = XLSX.utils.book_new();
+  const entries = [...appData.entries].sort((a,b)=>a.date.localeCompare(b.date));
 
-async function importData(event) {
-  const file = event.target.files[0];
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = async e => {
-    try {
-      const data = JSON.parse(e.target.result);
-      if (!Array.isArray(data.entries)) { alert('Invalid file.'); return; }
-      if (!confirm(`Import ${data.entries.length} entries? This will REPLACE all current data.`)) return;
-      appData = data;
-      cache();
-      setSyncStatus('syncing');
-      try {
-        for (const entry of data.entries) await apiFetch('entries', { method:'POST', body:entry });
-        for (const drv of (data.drivers||[])) await apiFetch('drivers', { method:'POST', body:{ name:drv } });
-        setSyncStatus('ok');
-        alert(`Imported ${data.entries.length} entries and synced to database.`);
-      } catch(e) {
-        setSyncStatus('error');
-        alert(`Imported locally but database sync incomplete: ${e.message}`);
-      }
-      FS = blankFS(); renderForm(); showView('entry');
-    } catch { alert('Invalid JSON file.'); }
-  };
-  reader.readAsText(file);
-  event.target.value = '';
+  // ── Sheet 1: Daily Summary ──
+  const summaryRows = [
+    ['Date', 'Driver', 'Trips', 'Total Income', 'Total Expenses', 'Trip Expenses', 'Misc Expenses', 'Company Expenses', 'Net Profit', 'Driver Prev Cash', 'Driver Remaining']
+  ];
+  entries.forEach(e => {
+    const c = calc(e);
+    summaryRows.push([
+      e.date, e.driver, e.trips.length,
+      c.totalInc, c.totalExp, c.tripExp, c.miscExp, c.coExp,
+      c.profit, +e.prevCash||0, c.drvRem
+    ]);
+  });
+  const ws1 = XLSX.utils.aoa_to_sheet(summaryRows);
+  ws1['!cols'] = [10,16,6,14,14,14,14,16,12,16,16].map(w=>({wch:w}));
+  XLSX.utils.book_append_sheet(wb, ws1, 'Daily Summary');
+
+  // ── Sheet 2: Trip Detail ──
+  const tripRows = [
+    ['Date', 'Driver', 'Trip #', 'Destination', 'Customer', 'Income', 'Trip Expenses', 'Payment Mode']
+  ];
+  entries.forEach(e => {
+    e.trips.forEach((t, i) => {
+      const te = t.exp.reduce((s,x)=>s+(+x.amt||0), 0);
+      tripRows.push([e.date, e.driver, i+1, t.dest, t.cust||'', +t.income||0, te, t.pm==='cash'?'Cash':'Credit']);
+    });
+  });
+  const ws2 = XLSX.utils.aoa_to_sheet(tripRows);
+  ws2['!cols'] = [10,16,6,22,18,12,14,10].map(w=>({wch:w}));
+  XLSX.utils.book_append_sheet(wb, ws2, 'Trip Detail');
+
+  // ── Sheet 3: Expense Detail ──
+  const expRows = [
+    ['Date', 'Driver', 'Category', 'Description', 'Qty', 'Rate', 'Amount']
+  ];
+  entries.forEach(e => {
+    e.trips.forEach((t, i) => {
+      t.exp.forEach(x => {
+        if (+x.amt) expRows.push([e.date, e.driver, `Trip ${i+1} Expense`, x.desc, '', '', +x.amt]);
+      });
+    });
+    e.misc.forEach(x => {
+      if (+x.amt) expRows.push([e.date, e.driver, 'Misc', x.desc, '', '', +x.amt]);
+    });
+    (e.coexp||[]).forEach(x => {
+      if (+x.amt) expRows.push([e.date, e.driver, 'Company', x.desc, x.qty||'', x.rate||'', +x.amt]);
+    });
+  });
+  const ws3 = XLSX.utils.aoa_to_sheet(expRows);
+  ws3['!cols'] = [10,16,14,22,6,8,12].map(w=>({wch:w}));
+  XLSX.utils.book_append_sheet(wb, ws3, 'Expense Detail');
+
+  const date = new Date().toISOString().slice(0,10);
+  XLSX.writeFile(wb, `AlAwal-Ledger-${date}.xlsx`);
 }
 
 // ─── ESCAPE ─────────────────────────────────────────────────
