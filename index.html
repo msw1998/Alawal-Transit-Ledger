@@ -143,7 +143,7 @@ function calc(e) {
 let FS = null;
 
 function blankFS() {
-  return { id:null, date:new Date().toISOString().slice(0,10), driver:'', prevCash:0, advance:0, trips:[], misc:[], coexp:[], notes:'' };
+  return { id:null, date:new Date().toISOString().slice(0,10), driver:'', prevCash:0, advance:0, trips:[], misc:[], coexp:[], clientPayments:[], notes:'' };
 }
 
 function readDOM() {
@@ -176,6 +176,12 @@ function readDOM() {
     x.rate = +(g(`c-r-${i}`)||{}).value||0;
     x.amt  = (x.qty&&x.rate) ? x.qty*x.rate : +(g(`c-a-${i}`)||{}).value||0;
   });
+  (FS.clientPayments||[]).forEach((x,i)=>{
+    x.client = (g(`cp-cl-${i}`)||{}).value||x.client||'';
+    x.desc   = (g(`cp-ds-${i}`)||{}).value||x.desc||'';
+    x.amount = +(g(`cp-am-${i}`)||{}).value||0;
+    x.mode   = (g(`cp-mo-${i}`)||{}).value||x.mode||'cash';
+  });
 }
 
 function addTrip()    { readDOM(); FS.trips.push({id:uid(),dest:'',cust:'',income:0,pm:'cash',exp:[{desc:'Jhampir Dhakka Loading',amt:0},{desc:'Royalty',amt:0},{desc:'Driver Trip Commission',amt:0}]}); renderForm(); }
@@ -186,6 +192,8 @@ function addMisc()    { readDOM(); FS.misc.push({desc:'',amt:0}); renderForm(); 
 function remMisc(i)   { readDOM(); FS.misc.splice(i,1); renderForm(); }
 function addCoExp()   { readDOM(); FS.coexp.push({desc:'',qty:0,rate:0,amt:0}); renderForm(); }
 function remCoExp(i)  { readDOM(); FS.coexp.splice(i,1); renderForm(); }
+function addCP()      { readDOM(); FS.clientPayments.push({client:'',desc:'',amount:0,mode:'cash'}); renderForm(); }
+function remCP(i)     { readDOM(); FS.clientPayments.splice(i,1); renderForm(); }
 
 function coexpSync(i) {
   const q = +(document.getElementById(`c-q-${i}`)||{}).value||0;
@@ -258,16 +266,26 @@ function getLocations() {
 
 function clientBalance(entries) {
   const map = {};
+  const ensure = client => { if (!map[client]) map[client] = { invoiced:0, cash:0, credit:0, payments:0 }; };
   entries.forEach(e => {
     e.trips.forEach(t => {
       const client = t.cust?.trim() || '(No Client)';
-      if (!map[client]) map[client] = { invoiced:0, cash:0, credit:0 };
+      ensure(client);
       const income = +t.income || 0;
-      if (t.pm === 'cash')    { map[client].cash   += income; }
-      else if (t.pm === 'partial') { const cr = +t.cashAmt||0; map[client].cash += cr; map[client].credit += Math.max(0, income-cr); }
-      else                    { map[client].credit += income; }
       map[client].invoiced += income;
+      if (t.pm === 'cash')         { map[client].cash   += income; }
+      else if (t.pm === 'partial') { const cr = +t.cashAmt||0; map[client].cash += cr; map[client].credit += Math.max(0, income-cr); }
+      else                         { map[client].credit += income; }
     });
+    (e.clientPayments||[]).forEach(p => {
+      const client = p.client?.trim() || '(No Client)';
+      ensure(client);
+      map[client].payments += +p.amount || 0;
+    });
+  });
+  Object.values(map).forEach(d => {
+    d.netOutstanding = Math.max(0, d.credit - d.payments);
+    d.overpaid       = Math.max(0, d.payments - d.credit);
   });
   return map;
 }
@@ -447,6 +465,50 @@ function renderForm() {
     </div>
 
     <div class="bg-white rounded-xl border p-4 mb-4 shadow-sm">
+      <div class="flex justify-between items-center mb-3">
+        <div>
+          <h2 class="font-semibold text-slate-700">Client Payments Received</h2>
+          <p class="text-xs text-gray-400">Cash, bank transfers, or expenses paid on client's behalf</p>
+        </div>
+        <button onclick="addCP()" class="bg-teal-600 text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-teal-700">+ Add</button>
+      </div>
+      <div class="space-y-3">
+        ${(FS.clientPayments||[]).length ? (FS.clientPayments||[]).map((p,i)=>`
+          <div class="border rounded-lg p-3 bg-teal-50 space-y-2">
+            <div class="flex gap-2">
+              <div class="flex-1">
+                <label class="text-xs text-gray-500">Client Name</label>
+                <input id="cp-cl-${i}" type="text" value="${esc(p.client)}" placeholder="Client name" list="cust-list"
+                  class="${INP} bg-white" oninput="updateSummary()">
+              </div>
+              <button onclick="remCP(${i})" class="w-9 h-9 flex items-center justify-center text-red-400 hover:text-red-600 shrink-0 rounded-lg hover:bg-red-50 self-end text-lg">✕</button>
+            </div>
+            <div>
+              <label class="text-xs text-gray-500">Description</label>
+              <input id="cp-ds-${i}" type="text" value="${esc(p.desc)}" placeholder="e.g. Payment for April trips / Diesel paid on behalf"
+                class="${INP} bg-white" oninput="updateSummary()">
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="text-xs text-gray-500">Amount (Rs.)</label>
+                <input id="cp-am-${i}" type="number" inputmode="numeric" value="${p.amount||''}" placeholder="0"
+                  class="${INP} bg-white" oninput="updateSummary()">
+              </div>
+              <div>
+                <label class="text-xs text-gray-500">Payment Mode</label>
+                <select id="cp-mo-${i}" class="${INP} bg-white" onchange="updateSummary()">
+                  <option value="cash"    ${p.mode==='cash'?'selected':''}>Cash</option>
+                  <option value="bank"    ${p.mode==='bank'?'selected':''}>Bank Transfer</option>
+                  <option value="expense" ${p.mode==='expense'?'selected':''}>Expense on Behalf</option>
+                </select>
+              </div>
+            </div>
+          </div>`).join('') : '<p class="text-sm text-gray-400">No client payments recorded.</p>'}
+      </div>
+      ${(FS.clientPayments||[]).length ? `<div class="text-right mt-2 text-sm font-semibold text-teal-700">Total Received: ${Rs((FS.clientPayments||[]).reduce((s,p)=>s+(+p.amount||0),0))}</div>` : ''}
+    </div>
+
+    <div class="bg-white rounded-xl border p-4 mb-4 shadow-sm">
       <h2 class="font-semibold text-slate-700 mb-3">Daily Summary</h2>
       <div class="grid grid-cols-2 gap-3 mb-4">
         <div class="bg-green-50 border border-green-200 rounded-lg p-3 text-center">
@@ -575,6 +637,17 @@ function openDay(id) {
       <span class="font-medium">${Rs(x.amt)}</span>
     </div>`).join('');
 
+  const modeLabel = { cash:'Cash', bank:'Bank Transfer', expense:'Expense on Behalf' };
+  const cpRows = (e.clientPayments||[]).filter(p=>+p.amount>0).map(p=>`
+    <div class="flex justify-between text-sm py-1 items-start">
+      <div>
+        <span class="font-medium text-teal-700">${esc(p.client)}</span>
+        <span class="text-gray-500"> — ${esc(p.desc)||'—'}</span>
+        <span class="ml-1 text-xs bg-teal-100 text-teal-700 px-1.5 py-0.5 rounded">${modeLabel[p.mode]||p.mode}</span>
+      </div>
+      <span class="font-semibold text-teal-700 shrink-0 ml-2">${Rs(p.amount)}</span>
+    </div>`).join('');
+
   document.getElementById('day-modal-body').innerHTML = `
     <div class="p-4 md:p-6">
       <!-- Header -->
@@ -632,6 +705,17 @@ function openDay(id) {
           </div>
         </div>` : ''}
       </div>
+
+      ${cpRows ? `<div class="mb-4">
+        <h3 class="font-semibold text-slate-700 mb-2">Client Payments Received</h3>
+        <div class="bg-teal-50 border border-teal-100 rounded-lg p-3">
+          ${cpRows}
+          <div class="flex justify-between font-bold text-sm pt-2 mt-1 border-t border-teal-200">
+            <span>Total Received</span>
+            <span class="text-teal-700">${Rs((e.clientPayments||[]).reduce((s,p)=>s+(+p.amount||0),0))}</span>
+          </div>
+        </div>
+      </div>` : ''}
 
       <!-- Bottom summary bar -->
       <div class="grid grid-cols-2 gap-2 bg-slate-800 text-white rounded-xl p-3">
@@ -737,14 +821,15 @@ function buildMonthly(month) {
   const cmap = clientBalance(entries);
   const totalCredit = Object.values(cmap).reduce((s,d)=>s+d.credit, 0);
   const clientCards = Object.entries(cmap)
-    .sort((a,b)=>b[1].credit-a[1].credit)
+    .sort((a,b)=>b[1].netOutstanding-a[1].netOutstanding)
     .map(([client,d])=>`
     <div class="border rounded-lg p-3">
       <div class="font-semibold text-slate-700 mb-2 text-sm">${esc(client)}</div>
-      <div class="grid grid-cols-3 gap-2 text-center">
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
         <div><div class="text-xs text-gray-400">Invoiced</div><div class="font-bold text-slate-600 text-sm">${Rs(d.invoiced)}</div></div>
-        <div><div class="text-xs text-gray-400">Cash Received</div><div class="font-bold text-green-600 text-sm">${Rs(d.cash)}</div></div>
-        <div><div class="text-xs text-gray-400">Credit Due</div><div class="font-bold text-sm ${d.credit>0?'text-red-600':'text-gray-400'}">${Rs(d.credit)}</div></div>
+        <div><div class="text-xs text-gray-400">Trip Cash</div><div class="font-bold text-green-600 text-sm">${Rs(d.cash)}</div></div>
+        <div><div class="text-xs text-gray-400">Payments Recv.</div><div class="font-bold text-teal-600 text-sm">${Rs(d.payments)}</div></div>
+        <div><div class="text-xs text-gray-400">Net Outstanding</div><div class="font-bold text-sm ${d.netOutstanding>0?'text-red-600':'text-gray-400'}">${Rs(d.netOutstanding)}</div></div>
       </div>
     </div>`).join('');
 
@@ -929,16 +1014,16 @@ function exportData() {
   // ── Sheet 4: Client Balance ──
   const cb = clientBalance(entries);
   const clientRows = [
-    ['Client / Party', 'Total Invoiced', 'Cash Received', 'Credit Due (Outstanding)']
+    ['Client / Party', 'Total Invoiced', 'Trip Cash Received', 'Trip Credit', 'Standalone Payments', 'Net Outstanding']
   ];
   Object.entries(cb)
-    .sort((a,b) => b[1].credit - a[1].credit)
-    .forEach(([client, d]) => clientRows.push([client, d.invoiced, d.cash, d.credit]));
-  const cbTot = Object.values(cb).reduce((a,d)=>({ invoiced:a.invoiced+d.invoiced, cash:a.cash+d.cash, credit:a.credit+d.credit }), {invoiced:0,cash:0,credit:0});
-  clientRows.push(['', '', '', '']);
-  clientRows.push(['TOTAL', cbTot.invoiced, cbTot.cash, cbTot.credit]);
+    .sort((a,b) => b[1].netOutstanding - a[1].netOutstanding)
+    .forEach(([client, d]) => clientRows.push([client, d.invoiced, d.cash, d.credit, d.payments, d.netOutstanding]));
+  const cbTot = Object.values(cb).reduce((a,d)=>({ invoiced:a.invoiced+d.invoiced, cash:a.cash+d.cash, credit:a.credit+d.credit, payments:a.payments+d.payments, netOutstanding:a.netOutstanding+d.netOutstanding }), {invoiced:0,cash:0,credit:0,payments:0,netOutstanding:0});
+  clientRows.push(['', '', '', '', '', '']);
+  clientRows.push(['TOTAL', cbTot.invoiced, cbTot.cash, cbTot.credit, cbTot.payments, cbTot.netOutstanding]);
   const ws4 = XLSX.utils.aoa_to_sheet(clientRows);
-  ws4['!cols'] = [24,16,16,22].map(w=>({wch:w}));
+  ws4['!cols'] = [24,16,18,14,20,18].map(w=>({wch:w}));
   XLSX.utils.book_append_sheet(wb, ws4, 'Client Balance');
 
   const date = new Date().toISOString().slice(0,10);
