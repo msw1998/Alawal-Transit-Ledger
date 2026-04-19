@@ -695,7 +695,7 @@ function openDay(id) {
       <div class="no-print flex gap-2 mb-4 flex-wrap">
         <button onclick="editDay('${id}')" class="flex-1 border px-3 py-2.5 rounded-lg text-sm font-medium hover:bg-gray-50 text-center">Edit</button>
         <button onclick="delDay('${id}')" class="flex-1 border border-red-200 text-red-500 px-3 py-2.5 rounded-lg text-sm font-medium hover:bg-red-50 text-center">Delete</button>
-        <button onclick="window.print()" class="flex-1 bg-slate-700 text-white px-3 py-2.5 rounded-lg text-sm font-medium hover:bg-slate-800 text-center">Print</button>
+        <button onclick="printDay()" class="flex-1 bg-slate-700 text-white px-3 py-2.5 rounded-lg text-sm font-medium hover:bg-slate-800 text-center">Print</button>
       </div>
 
       <!-- Cash flow -->
@@ -777,6 +777,33 @@ function openDay(id) {
 }
 
 function closeModal() { document.getElementById('day-modal').classList.add('hidden'); }
+
+function printDay() {
+  const html = document.getElementById('day-modal-body').innerHTML;
+  const win  = window.open('', '_blank', 'width=820,height=960');
+  win.document.write(`<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>AlAwal Transit – Trip Report</title>
+  <script src="https://cdn.tailwindcss.com"><\/script>
+  <style>
+    body { background: white; }
+    button { display: none !important; }
+    @media print { @page { margin: 1.2cm; } body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+  </style>
+</head>
+<body class="bg-white">
+  <div class="max-w-2xl mx-auto">${html}</div>
+  <script>
+    window.addEventListener('load', function() {
+      setTimeout(function() { window.print(); window.close(); }, 700);
+    });
+  <\/script>
+</body></html>`);
+  win.document.close();
+}
 
 function editDay(id) {
   const e = load().entries.find(x=>x.id===id);
