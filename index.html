@@ -232,6 +232,24 @@ function updateSummary() {
   if (cpTot) { const v=(FS.clientPayments||[]).reduce((s,p)=>s+(+p.amount||0),0); cpTot.textContent=`Total Received: ${Rs(v)}`; cpTot.classList.toggle('hidden',!(FS.clientPayments||[]).length); }
 }
 
+function autoFillPrevCash() {
+  const drv  = (document.getElementById('f-driver')||{}).value?.trim();
+  const date = (document.getElementById('f-date')||{}).value;
+  // Only auto-fill for new entries; edits already have their value
+  if (!drv || !date || FS.id) return;
+  const prev = appData.entries
+    .filter(e => e.driver?.trim() === drv && e.date < date)
+    .sort((a,b) => b.date.localeCompare(a.date))[0];
+  if (prev) {
+    const safe = { trips:[], misc:[], coexp:[], ...prev };
+    const rem  = calc(safe).drvRem;
+    const el   = document.getElementById('f-prev');
+    if (el) el.value = rem || 0;
+    FS.prevCash = rem || 0;
+    updateSummary();
+  }
+}
+
 function togglePartial(ti) {
   const pm  = document.querySelector(`input[name="t-pm-${ti}"]:checked`)?.value;
   const div = document.getElementById(`t-partial-${ti}`);
@@ -423,11 +441,11 @@ function renderForm() {
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label class="text-xs font-medium text-gray-500">Date</label>
-          <input id="f-date" type="date" value="${FS.date}" class="${INP}">
+          <input id="f-date" type="date" value="${FS.date}" class="${INP}" onchange="autoFillPrevCash()">
         </div>
         <div>
           <label class="text-xs font-medium text-gray-500">Driver Name</label>
-          <input id="f-driver" type="text" value="${esc(FS.driver)}" list="drv-list" placeholder="Enter or select" class="${INP}">
+          <input id="f-driver" type="text" value="${esc(FS.driver)}" list="drv-list" placeholder="Enter or select" class="${INP}" onchange="autoFillPrevCash()">
           <datalist id="drv-list">${drvOpts}</datalist>
         </div>
         <div>
