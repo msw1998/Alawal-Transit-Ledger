@@ -184,15 +184,17 @@ function readDOM() {
   });
 }
 
-function addTrip()    { readDOM(); FS.trips.push({id:uid(),dest:'',cust:'',income:0,pm:'cash',exp:[{desc:'Jhampir Dhakka Loading',amt:0},{desc:'Royalty',amt:0},{desc:'Driver Trip Commission',amt:0}]}); renderForm(); }
+function _focus(id) { const el=document.getElementById(id); if(el){el.focus();el.scrollIntoView({block:'nearest'});} }
+
+function addTrip()    { readDOM(); FS.trips.push({id:uid(),dest:'',cust:'',income:0,pm:'cash',exp:[{desc:'Jhampir Dhakka Loading',amt:0},{desc:'Royalty',amt:0},{desc:'Driver Trip Commission',amt:0}]}); renderForm(); _focus('t-dest-'+(FS.trips.length-1)); }
 function remTrip(i)   { readDOM(); FS.trips.splice(i,1); renderForm(); }
-function addTE(ti)    { readDOM(); FS.trips[ti].exp.push({desc:'',amt:0}); renderForm(); }
+function addTE(ti)    { readDOM(); FS.trips[ti].exp.push({desc:'',amt:0}); renderForm(); _focus('t-ed-'+ti+'-'+(FS.trips[ti].exp.length-1)); }
 function remTE(ti,ei) { readDOM(); FS.trips[ti].exp.splice(ei,1); renderForm(); }
-function addMisc()    { readDOM(); FS.misc.push({desc:'',amt:0}); renderForm(); }
+function addMisc()    { readDOM(); FS.misc.push({desc:'',amt:0}); renderForm(); _focus('m-d-'+(FS.misc.length-1)); }
 function remMisc(i)   { readDOM(); FS.misc.splice(i,1); renderForm(); }
-function addCoExp()   { readDOM(); FS.coexp.push({desc:'',qty:0,rate:0,amt:0}); renderForm(); }
+function addCoExp()   { readDOM(); FS.coexp.push({desc:'',qty:0,rate:0,amt:0}); renderForm(); _focus('c-d-'+(FS.coexp.length-1)); }
 function remCoExp(i)  { readDOM(); FS.coexp.splice(i,1); renderForm(); }
-function addCP()      { readDOM(); FS.clientPayments.push({client:'',desc:'',amount:0,mode:'cash'}); renderForm(); }
+function addCP()      { readDOM(); FS.clientPayments.push({client:'',desc:'',amount:0,mode:'cash'}); renderForm(); _focus('cp-cl-'+(FS.clientPayments.length-1)); }
 function remCP(i)     { readDOM(); FS.clientPayments.splice(i,1); renderForm(); }
 
 function coexpSync(i) {
@@ -222,6 +224,12 @@ function updateSummary() {
     const cr = document.getElementById(`t-credit-${ti}`);
     if (cr) cr.textContent = `Rs. ${Math.max(0,(t.income||0)-(t.cashAmt||0)).toLocaleString('en-PK')}`;
   });
+  const miscTot = el('s-misc-tot');
+  if (miscTot) { const v=FS.misc.reduce((s,x)=>s+(+x.amt||0),0); miscTot.textContent=`Total: ${Rs(v)}`; miscTot.classList.toggle('hidden',!FS.misc.length); }
+  const coTot = el('s-coexp-tot');
+  if (coTot) { const v=(FS.coexp||[]).reduce((s,x)=>s+(+x.amt||0),0); coTot.textContent=`Total: ${Rs(v)}`; coTot.classList.toggle('hidden',!(FS.coexp||[]).length); }
+  const cpTot = el('s-cp-tot');
+  if (cpTot) { const v=(FS.clientPayments||[]).reduce((s,p)=>s+(+p.amount||0),0); cpTot.textContent=`Total Received: ${Rs(v)}`; cpTot.classList.toggle('hidden',!(FS.clientPayments||[]).length); }
 }
 
 function togglePartial(ti) {
@@ -309,7 +317,8 @@ function renderForm() {
         <input id="t-ed-${ti}-${ei}" type="text" value="${esc(x.desc)}" placeholder="Description"
           class="flex-1 ${INPS}" oninput="updateSummary()">
         <input id="t-ea-${ti}-${ei}" type="number" inputmode="numeric" value="${x.amt||''}" placeholder="0"
-          class="w-24 ${INPS} text-right" oninput="updateSummary()">
+          class="w-24 ${INPS} text-right" oninput="updateSummary()"
+          onkeydown="if(event.key==='Enter'){event.preventDefault();addTE(${ti});}">
         <button onclick="remTE(${ti},${ei})" class="w-9 h-9 flex items-center justify-center text-red-400 hover:text-red-600 shrink-0 rounded-lg hover:bg-red-50 text-lg">✕</button>
       </div>`).join('');
 
@@ -323,12 +332,10 @@ function renderForm() {
         <div>
           <label class="text-xs font-medium text-gray-500">Destination / Location</label>
           <input id="t-dest-${ti}" type="text" value="${esc(t.dest)}" placeholder="e.g. Sohrab Goth Stock" list="loc-list" class="${INP}" oninput="updateSummary()">
-          <datalist id="loc-list">${locationOpts}</datalist>
         </div>
         <div>
           <label class="text-xs font-medium text-gray-500">Customer / Party</label>
           <input id="t-cust-${ti}" type="text" value="${esc(t.cust)}" placeholder="e.g. Abdul Rahim" list="cust-list" class="${INP}" oninput="updateSummary()">
-          <datalist id="cust-list">${clientOpts}</datalist>
         </div>
       </div>
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
@@ -372,7 +379,8 @@ function renderForm() {
       <input id="m-d-${i}" type="text" value="${esc(x.desc)}" placeholder="e.g. Dihadi, Chai, Challan…"
         class="flex-1 ${INPS}" oninput="updateSummary()">
       <input id="m-a-${i}" type="number" inputmode="numeric" value="${x.amt||''}" placeholder="0"
-        class="w-28 ${INPS} text-right" oninput="updateSummary()">
+        class="w-28 ${INPS} text-right" oninput="updateSummary()"
+        onkeydown="if(event.key==='Enter'){event.preventDefault();addMisc();}">
       <button onclick="remMisc(${i})" class="w-9 h-9 flex items-center justify-center text-red-400 hover:text-red-600 shrink-0 rounded-lg hover:bg-red-50 text-lg">✕</button>
     </div>`).join('');
 
@@ -398,7 +406,8 @@ function renderForm() {
         <div class="flex-1">
           <label class="text-xs text-gray-400">Total Amount</label>
           <input id="c-a-${i}" type="number" inputmode="numeric" value="${x.amt||''}" placeholder="0"
-            class="w-full ${INPS} mt-0.5 font-semibold" oninput="updateSummary()">
+            class="w-full ${INPS} mt-0.5 font-semibold" oninput="updateSummary()"
+            onkeydown="if(event.key==='Enter'){event.preventDefault();addCoExp();}">
         </div>
       </div>
     </div>`).join('');
@@ -432,6 +441,9 @@ function renderForm() {
       </div>
     </div>
 
+    <datalist id="loc-list">${locationOpts}</datalist>
+    <datalist id="cust-list">${clientOpts}</datalist>
+
     <div class="mb-4">
       <div class="flex justify-between items-center mb-3">
         <h2 class="font-semibold text-slate-700">Trips</h2>
@@ -449,7 +461,7 @@ function renderForm() {
         <button onclick="addMisc()" class="bg-orange-500 text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-orange-600">+ Add</button>
       </div>
       <div class="space-y-2">${miscHTML || '<p class="text-sm text-gray-400">None added.</p>'}</div>
-      ${FS.misc.length ? `<div class="text-right mt-2 text-sm font-semibold text-orange-600">Total: ${Rs(c.miscExp)}</div>` : ''}
+      <div id="s-misc-tot" class="text-right mt-2 text-sm font-semibold text-orange-600 ${FS.misc.length?'':'hidden'}">Total: ${Rs(c.miscExp)}</div>
     </div>
 
     <div class="bg-white rounded-xl border p-4 mb-4 shadow-sm">
@@ -461,7 +473,7 @@ function renderForm() {
         <button onclick="addCoExp()" class="bg-purple-600 text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-purple-700">+ Add</button>
       </div>
       <div class="space-y-2">${coHTML || '<p class="text-sm text-gray-400">None added.</p>'}</div>
-      ${(FS.coexp||[]).length ? `<div class="text-right mt-2 text-sm font-semibold text-purple-600">Total: ${Rs(c.coExp)}</div>` : ''}
+      <div id="s-coexp-tot" class="text-right mt-2 text-sm font-semibold text-purple-600 ${(FS.coexp||[]).length?'':'hidden'}">Total: ${Rs(c.coExp)}</div>
     </div>
 
     <div class="bg-white rounded-xl border p-4 mb-4 shadow-sm">
@@ -492,7 +504,8 @@ function renderForm() {
               <div>
                 <label class="text-xs text-gray-500">Amount (Rs.)</label>
                 <input id="cp-am-${i}" type="number" inputmode="numeric" value="${p.amount||''}" placeholder="0"
-                  class="${INP} bg-white" oninput="updateSummary()">
+                  class="${INP} bg-white" oninput="updateSummary()"
+                  onkeydown="if(event.key==='Enter'){event.preventDefault();addCP();}">
               </div>
               <div>
                 <label class="text-xs text-gray-500">Payment Mode</label>
@@ -505,7 +518,7 @@ function renderForm() {
             </div>
           </div>`).join('') : '<p class="text-sm text-gray-400">No client payments recorded.</p>'}
       </div>
-      ${(FS.clientPayments||[]).length ? `<div class="text-right mt-2 text-sm font-semibold text-teal-700">Total Received: ${Rs((FS.clientPayments||[]).reduce((s,p)=>s+(+p.amount||0),0))}</div>` : ''}
+      <div id="s-cp-tot" class="text-right mt-2 text-sm font-semibold text-teal-700 ${(FS.clientPayments||[]).length?'':'hidden'}">Total Received: ${Rs((FS.clientPayments||[]).reduce((s,p)=>s+(+p.amount||0),0))}</div>
     </div>
 
     <div class="bg-white rounded-xl border p-4 mb-4 shadow-sm">
