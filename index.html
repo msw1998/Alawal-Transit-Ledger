@@ -145,7 +145,7 @@ function calc(e) {
 let FS = null;
 
 function blankFS() {
-  return { id:null, date:new Date().toISOString().slice(0,10), driver:'', prevCash:0, advance:0, trips:[], misc:[], coexp:[], clientPayments:[], notes:'' };
+  return { id:null, date:new Date().toISOString().slice(0,10), driver:'', prevCash:0, advance:0, trips:[], misc:[], coexp:[], clientPayments:[], vendorPayments:[], notes:'' };
 }
 
 function readDOM() {
@@ -186,6 +186,11 @@ function readDOM() {
     x.amount = +(g(`cp-am-${i}`)||{}).value||0;
     x.mode   = (g(`cp-mo-${i}`)||{}).value||x.mode||'cash';
   });
+  (FS.vendorPayments||[]).forEach((x,i)=>{
+    x.vendor = (g(`vp-vn-${i}`)||{}).value||x.vendor||'';
+    x.amount = +(g(`vp-am-${i}`)||{}).value||0;
+    x.mode   = (g(`vp-mo-${i}`)||{}).value||x.mode||'cash';
+  });
 }
 
 function _focus(id) { const el=document.getElementById(id); if(el){el.focus();el.scrollIntoView({block:'nearest'});} }
@@ -200,6 +205,8 @@ function addCoExp()   { readDOM(); FS.coexp.push({desc:'',qty:0,rate:0,amt:0}); 
 function remCoExp(i)  { readDOM(); FS.coexp.splice(i,1); renderForm(); }
 function addCP()      { readDOM(); FS.clientPayments.push({client:'',desc:'',amount:0,mode:'cash'}); renderForm(); _focus('cp-cl-'+(FS.clientPayments.length-1)); }
 function remCP(i)     { readDOM(); FS.clientPayments.splice(i,1); renderForm(); }
+function addVP()      { readDOM(); FS.vendorPayments.push({vendor:'',amount:0,mode:'cash'}); renderForm(); _focus('vp-vn-'+(FS.vendorPayments.length-1)); }
+function remVP(i)     { readDOM(); FS.vendorPayments.splice(i,1); renderForm(); }
 
 function coexpSync(i) {
   const q = +(document.getElementById(`c-q-${i}`)||{}).value||0;
@@ -234,6 +241,8 @@ function updateSummary() {
   if (coTot) { const v=(FS.coexp||[]).reduce((s,x)=>s+(+x.amt||0),0); coTot.textContent=`Total: ${Rs(v)}`; coTot.classList.toggle('hidden',!(FS.coexp||[]).length); }
   const cpTot = el('s-cp-tot');
   if (cpTot) { const v=(FS.clientPayments||[]).reduce((s,p)=>s+(+p.amount||0),0); cpTot.textContent=`Total Received: ${Rs(v)}`; cpTot.classList.toggle('hidden',!(FS.clientPayments||[]).length); }
+  const vpTot = el('s-vp-tot');
+  if (vpTot) { const v=(FS.vendorPayments||[]).reduce((s,p)=>s+(+p.amount||0),0); vpTot.textContent=`Total Paid: ${Rs(v)}`; vpTot.classList.toggle('hidden',!(FS.vendorPayments||[]).length); }
 }
 
 function autoFillPrevCash() {
@@ -273,7 +282,8 @@ async function saveEntry() {
   if (!FS.date||!FS.driver.trim()) { alert('Please enter date and driver name.'); return; }
   if (!FS.id) FS.id = uid();
   const idx = appData.entries.findIndex(e=>e.id===FS.id);
-  if (idx>=0) appData.entries[idx]={...FS}; else appData.entries.push({...FS});
+  const saved = JSON.parse(JSON.stringify(FS));
+  if (idx>=0) appData.entries[idx]=saved; else appData.entries.push(saved);
   if (FS.driver && !appData.drivers.includes(FS.driver)) appData.drivers.push(FS.driver);
   cache();
   setSyncStatus('syncing');
@@ -298,6 +308,15 @@ function getClients() {
 function getLocations() {
   const s = new Set();
   appData.entries.forEach(e => e.trips.forEach(t => { if (t.dest?.trim()) s.add(t.dest.trim()); }));
+  return [...s].sort();
+}
+
+function getVendors() {
+  const s = new Set();
+  appData.entries.forEach(e => {
+    e.trips.forEach(t => (t.exp||[]).forEach(x => { if (x.vendor?.trim()) s.add(x.vendor.trim()); }));
+    (e.vendorPayments||[]).forEach(p => { if (p.vendor?.trim()) s.add(p.vendor.trim()); });
+  });
   return [...s].sort();
 }
 
@@ -483,6 +502,7 @@ function renderForm() {
 
     <datalist id="loc-list">${locationOpts}</datalist>
     <datalist id="cust-list">${clientOpts}</datalist>
+    <datalist id="vendor-list">${getVendors().map(v=>`<option value="${esc(v)}">`).join('')}</datalist>
 
     <div class="mb-4">
       <div class="flex justify-between items-center mb-3">
@@ -559,6 +579,45 @@ function renderForm() {
           </div>`).join('') : '<p class="text-sm text-gray-400">No client payments recorded.</p>'}
       </div>
       <div id="s-cp-tot" class="text-right mt-2 text-sm font-semibold text-teal-700 ${(FS.clientPayments||[]).length?'':'hidden'}">Total Received: ${Rs((FS.clientPayments||[]).reduce((s,p)=>s+(+p.amount||0),0))}</div>
+    </div>
+
+    <div class="bg-white rounded-xl border p-4 mb-4 shadow-sm">
+      <div class="flex justify-between items-center mb-3">
+        <div>
+          <h2 class="font-semibold text-slate-700">Vendor Payments Made</h2>
+          <p class="text-xs text-gray-400">Cash or bank payments made to vendors against credit expenses</p>
+        </div>
+        <button onclick="addVP()" class="bg-amber-600 text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-amber-700">+ Add</button>
+      </div>
+      <div class="space-y-3">
+        ${(FS.vendorPayments||[]).length ? (FS.vendorPayments||[]).map((p,i)=>`
+          <div class="border rounded-lg p-3 bg-amber-50 space-y-2">
+            <div class="flex gap-2">
+              <div class="flex-1">
+                <label class="text-xs text-gray-500">Vendor Name</label>
+                <input id="vp-vn-${i}" type="text" value="${esc(p.vendor)}" placeholder="Vendor name" list="vendor-list"
+                  class="${INP} bg-white" oninput="updateSummary()">
+              </div>
+              <button onclick="remVP(${i})" class="w-9 h-9 flex items-center justify-center text-red-400 hover:text-red-600 shrink-0 rounded-lg hover:bg-red-50 self-end text-lg">✕</button>
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="text-xs text-gray-500">Amount Paid (Rs.)</label>
+                <input id="vp-am-${i}" type="number" inputmode="numeric" value="${p.amount||''}" placeholder="0"
+                  class="${INP} bg-white" oninput="updateSummary()"
+                  onkeydown="if(event.key==='Enter'){event.preventDefault();addVP();}">
+              </div>
+              <div>
+                <label class="text-xs text-gray-500">Payment Mode</label>
+                <select id="vp-mo-${i}" class="${INP} bg-white" onchange="updateSummary()">
+                  <option value="cash" ${p.mode==='cash'?'selected':''}>Cash</option>
+                  <option value="bank" ${p.mode==='bank'?'selected':''}>Bank Transfer</option>
+                </select>
+              </div>
+            </div>
+          </div>`).join('') : '<p class="text-sm text-gray-400">No vendor payments recorded.</p>'}
+      </div>
+      <div id="s-vp-tot" class="text-right mt-2 text-sm font-semibold text-amber-700 ${(FS.vendorPayments||[]).length?'':'hidden'}">Total Paid: ${Rs((FS.vendorPayments||[]).reduce((s,p)=>s+(+p.amount||0),0))}</div>
     </div>
 
     <div class="bg-white rounded-xl border p-4 mb-4 shadow-sm">
@@ -706,6 +765,15 @@ function openDay(id) {
       <span class="font-semibold text-teal-700 shrink-0 ml-2">${Rs(p.amount)}</span>
     </div>`).join('');
 
+  const vpRows = (e.vendorPayments||[]).filter(p=>+p.amount>0).map(p=>`
+    <div class="flex justify-between text-sm py-1 items-center">
+      <div>
+        <span class="font-medium text-amber-700">${esc(p.vendor)}</span>
+        <span class="ml-1 text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">${p.mode==='bank'?'Bank Transfer':'Cash'}</span>
+      </div>
+      <span class="font-semibold text-amber-700 shrink-0 ml-2">${Rs(p.amount)}</span>
+    </div>`).join('');
+
   document.getElementById('day-modal-body').innerHTML = `
     <div class="p-4 md:p-6">
       <!-- Header -->
@@ -771,6 +839,17 @@ function openDay(id) {
           <div class="flex justify-between font-bold text-sm pt-2 mt-1 border-t border-teal-200">
             <span>Total Received</span>
             <span class="text-teal-700">${Rs((e.clientPayments||[]).reduce((s,p)=>s+(+p.amount||0),0))}</span>
+          </div>
+        </div>
+      </div>` : ''}
+
+      ${vpRows ? `<div class="mb-4">
+        <h3 class="font-semibold text-slate-700 mb-2">Vendor Payments Made</h3>
+        <div class="bg-amber-50 border border-amber-100 rounded-lg p-3">
+          ${vpRows}
+          <div class="flex justify-between font-bold text-sm pt-2 mt-1 border-t border-amber-200">
+            <span>Total Paid</span>
+            <span class="text-amber-700">${Rs((e.vendorPayments||[]).reduce((s,p)=>s+(+p.amount||0),0))}</span>
           </div>
         </div>
       </div>` : ''}
@@ -902,8 +981,9 @@ function buildMonthly(month) {
       </div>
     </div>`).join('');
 
-  // Vendor payables (credit trip expenses)
-  const vmap = {};
+  // Vendor payables (credit trip expenses minus vendor payments made)
+  const vmap  = {};  // credit expenses owed per vendor
+  const vpmap = {};  // payments made per vendor
   entries.forEach(e => {
     e.trips.forEach(t => {
       (t.exp||[]).forEach(x => {
@@ -913,13 +993,33 @@ function buildMonthly(month) {
         }
       });
     });
+    (e.vendorPayments||[]).forEach(p => {
+      if (+p.amount > 0) {
+        const v = p.vendor?.trim() || '(Unknown Vendor)';
+        vpmap[v] = (vpmap[v]||0) + (+p.amount);
+      }
+    });
   });
-  const totalVendorOwed = Object.values(vmap).reduce((s,v)=>s+v, 0);
-  const vendorCards = Object.entries(vmap).sort((a,b)=>b[1]-a[1]).map(([vendor,total])=>`
-    <div class="flex justify-between items-center py-2 px-1 border-b last:border-b-0">
-      <span class="text-sm font-medium text-slate-700">${esc(vendor)}</span>
-      <span class="text-sm font-bold text-amber-700">${Rs(total)}</span>
-    </div>`).join('');
+  const allVendorNames = new Set([...Object.keys(vmap), ...Object.keys(vpmap)]);
+  const totalVendorOwed = [...allVendorNames].reduce((s,v)=>s+Math.max(0,(vmap[v]||0)-(vpmap[v]||0)),0);
+  const vendorCards = [...allVendorNames]
+    .sort((a,b)=>((vmap[b]||0)-(vpmap[b]||0))-((vmap[a]||0)-(vpmap[a]||0)))
+    .map(vendor=>{
+      const owed = vmap[vendor]||0;
+      const paid = vpmap[vendor]||0;
+      const net  = owed - paid;
+      return `
+    <div class="border rounded-lg p-3">
+      <div class="flex justify-between items-start">
+        <span class="text-sm font-semibold text-slate-700">${esc(vendor)}</span>
+        <span class="text-sm font-bold ${net>0?'text-amber-700':'text-green-600'} ml-2">${net>0?Rs(net):'Cleared'}</span>
+      </div>
+      ${paid>0?`<div class="grid grid-cols-2 gap-2 mt-1.5 text-center text-xs">
+        <div><div class="text-gray-400">Credit Expenses</div><div class="font-semibold text-red-500">${Rs(owed)}</div></div>
+        <div><div class="text-gray-400">Paid</div><div class="font-semibold text-green-600">${Rs(paid)}</div></div>
+      </div>`:''}
+    </div>`;
+    }).join('');
 
   // Client balance cards
   const cmap = clientBalance(entries);
@@ -1000,13 +1100,15 @@ function buildMonthly(month) {
       <div class="p-3 space-y-2">${clientCards}</div>
     </div>
 
-    ${totalVendorOwed > 0 ? `
+    ${allVendorNames.size > 0 ? `
     <div class="bg-white rounded-xl border shadow-sm mb-4">
       <div class="p-3 border-b flex justify-between items-center">
-        <span class="font-semibold text-slate-700">Vendor Payables (Credit Expenses)</span>
-        <span class="text-xs font-semibold text-amber-700 bg-amber-50 px-2 py-1 rounded-full">Total Owed: ${Rs(totalVendorOwed)}</span>
+        <span class="font-semibold text-slate-700">Vendor Payables</span>
+        ${totalVendorOwed>0
+          ? `<span class="text-xs font-semibold text-amber-700 bg-amber-50 px-2 py-1 rounded-full">Net Owed: ${Rs(totalVendorOwed)}</span>`
+          : `<span class="text-xs text-green-600 font-semibold">All Cleared</span>`}
       </div>
-      <div class="p-3">${vendorCards}</div>
+      <div class="p-3 space-y-2">${vendorCards}</div>
     </div>` : ''}
 
     <div class="bg-white rounded-xl border shadow-sm">
