@@ -11,6 +11,11 @@
 <style>
 /* Prevent iOS input zoom */
 input, select, textarea { font-size: 16px !important; }
+/* Remove number input spinners and block scroll-to-change */
+input[type=number]::-webkit-inner-spin-button,
+input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+input[type=number] { -moz-appearance: textfield; appearance: textfield; }
+input[type=number] { cursor: text; }
 @media (min-width: 640px) { input, select, textarea { font-size: 14px !important; } }
 @media print {
   .no-print { display: none !important; }
@@ -31,7 +36,7 @@ input, select, textarea { font-size: 16px !important; }
   </div>
   <!-- Desktop nav tabs -->
   <div class="hidden md:flex gap-1 items-center">
-    <button onclick="showView('entry')" data-view="entry" class="nav-btn px-4 py-2 rounded-lg text-sm font-medium text-slate-300 hover:bg-slate-700 transition-colors">+ New Entry</button>
+    <button onclick="FS=blankFS();showView('entry')" data-view="entry" class="nav-btn px-4 py-2 rounded-lg text-sm font-medium text-slate-300 hover:bg-slate-700 transition-colors">+ New Entry</button>
     <button onclick="showView('daily')" data-view="daily" class="nav-btn px-4 py-2 rounded-lg text-sm font-medium text-slate-300 hover:bg-slate-700 transition-colors">Daily View</button>
     <button onclick="showView('monthly')" data-view="monthly" class="nav-btn px-4 py-2 rounded-lg text-sm font-medium text-slate-300 hover:bg-slate-700 transition-colors">Dashboard</button>
     <div class="w-px h-5 bg-slate-600 mx-1"></div>
@@ -48,7 +53,7 @@ input, select, textarea { font-size: 16px !important; }
 
 <!-- MOBILE BOTTOM TAB BAR -->
 <div class="md:hidden no-print fixed bottom-0 left-0 right-0 bg-slate-900 border-t border-slate-700 flex z-40 safe-area-bottom">
-  <button onclick="showView('entry')" data-tab="entry" class="tab-btn flex-1 py-3 flex flex-col items-center gap-0.5 text-slate-400 active:bg-slate-800 transition-colors">
+  <button onclick="FS=blankFS();showView('entry')" data-tab="entry" class="tab-btn flex-1 py-3 flex flex-col items-center gap-0.5 text-slate-400 active:bg-slate-800 transition-colors">
     <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4"/></svg>
     <span class="text-xs font-medium">New Entry</span>
   </button>
@@ -205,7 +210,7 @@ function addCoExp()   { readDOM(); FS.coexp.push({desc:'',qty:0,rate:0,amt:0}); 
 function remCoExp(i)  { readDOM(); FS.coexp.splice(i,1); renderForm(); }
 function addCP()      { readDOM(); FS.clientPayments.push({client:'',desc:'',amount:0,mode:'cash'}); renderForm(); _focus('cp-cl-'+(FS.clientPayments.length-1)); }
 function remCP(i)     { readDOM(); FS.clientPayments.splice(i,1); renderForm(); }
-function addVP()      { readDOM(); FS.vendorPayments.push({vendor:'',amount:0,mode:'cash'}); renderForm(); _focus('vp-vn-'+(FS.vendorPayments.length-1)); }
+function addVP()      { readDOM(); if(!FS.vendorPayments)FS.vendorPayments=[]; FS.vendorPayments.push({vendor:'',amount:0,mode:'cash'}); renderForm(); _focus('vp-vn-'+(FS.vendorPayments.length-1)); }
 function remVP(i)     { readDOM(); FS.vendorPayments.splice(i,1); renderForm(); }
 
 function coexpSync(i) {
@@ -343,6 +348,23 @@ function clientBalance(entries) {
     d.netOutstanding = Math.max(0, d.credit - d.payments);
     d.overpaid       = Math.max(0, d.payments - d.credit);
   });
+  return map;
+}
+
+function vendorBalance(entries) {
+  const map = {};
+  const ensure = v => { if (!map[v]) map[v] = { owed:0, paid:0 }; };
+  entries.forEach(e => {
+    e.trips.forEach(t => {
+      (t.exp||[]).forEach(x => {
+        if (x.mode==='credit' && +x.amt>0) { const v=x.vendor?.trim()||'(Unknown Vendor)'; ensure(v); map[v].owed+=+x.amt; }
+      });
+    });
+    (e.vendorPayments||[]).forEach(p => {
+      if (+p.amount>0) { const v=p.vendor?.trim()||'(Unknown Vendor)'; ensure(v); map[v].paid+=+p.amount; }
+    });
+  });
+  Object.values(map).forEach(d => { d.net = Math.max(0, d.owed - d.paid); });
   return map;
 }
 
@@ -915,6 +937,9 @@ function editDay(id) {
   const e = load().entries.find(x=>x.id===id);
   if (!e) return;
   FS = JSON.parse(JSON.stringify(e));
+  if (!FS.vendorPayments)  FS.vendorPayments  = [];
+  if (!FS.clientPayments)  FS.clientPayments  = [];
+  if (!FS.coexp)           FS.coexp           = [];
   closeModal();
   showView('entry');
 }
@@ -935,13 +960,26 @@ async function delDay(id) {
 // ─── MONTHLY DASHBOARD ──────────────────────────────────────
 let mCharts = {};
 
+function shiftMonth(delta) {
+  const pick = document.getElementById('mpick');
+  if (!pick) return;
+  const [y, m] = pick.value.split('-').map(Number);
+  const d = new Date(y, m - 1 + delta, 1);
+  pick.value = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+  buildMonthly(pick.value);
+}
+
 function renderMonthly() {
   const now = new Date();
   const def = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
   document.getElementById('view-monthly').innerHTML = `
     <div class="flex justify-between items-center mb-4">
       <h1 class="text-xl font-bold text-slate-800">Monthly Dashboard</h1>
-      <input type="month" id="mpick" value="${def}" class="border rounded-lg px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-300" onchange="buildMonthly(this.value)">
+      <div class="flex items-center gap-1">
+        <button onclick="shiftMonth(-1)" class="w-9 h-9 flex items-center justify-center rounded-lg border bg-white hover:bg-gray-50 text-slate-600 shadow-sm text-lg font-bold">‹</button>
+        <input type="month" id="mpick" value="${def}" class="border rounded-lg px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-300" onchange="buildMonthly(this.value)">
+        <button onclick="shiftMonth(1)" class="w-9 h-9 flex items-center justify-center rounded-lg border bg-white hover:bg-gray-50 text-slate-600 shadow-sm text-lg font-bold">›</button>
+      </div>
     </div>
     <div id="mcontent"></div>`;
   buildMonthly(def);
@@ -981,61 +1019,69 @@ function buildMonthly(month) {
       </div>
     </div>`).join('');
 
-  // Vendor payables (credit trip expenses minus vendor payments made)
-  const vmap  = {};  // credit expenses owed per vendor
-  const vpmap = {};  // payments made per vendor
-  entries.forEach(e => {
-    e.trips.forEach(t => {
-      (t.exp||[]).forEach(x => {
-        if (x.mode === 'credit' && +x.amt > 0) {
-          const v = x.vendor?.trim() || '(Unknown Vendor)';
-          vmap[v] = (vmap[v]||0) + (+x.amt);
-        }
-      });
-    });
-    (e.vendorPayments||[]).forEach(p => {
-      if (+p.amount > 0) {
-        const v = p.vendor?.trim() || '(Unknown Vendor)';
-        vpmap[v] = (vpmap[v]||0) + (+p.amount);
-      }
-    });
-  });
-  const allVendorNames = new Set([...Object.keys(vmap), ...Object.keys(vpmap)]);
-  const totalVendorOwed = [...allVendorNames].reduce((s,v)=>s+Math.max(0,(vmap[v]||0)-(vpmap[v]||0)),0);
+  // All-time carry-over: entries before this month
+  const allEntries  = data.entries;
+  const prevEntries = allEntries.filter(e => e.date < month + '-01');
+
+  // ── Vendor payables with carry-over ──
+  const prevVbal = vendorBalance(prevEntries);
+  const currVbal = vendorBalance(entries);
+  const allVendorNames = new Set([...Object.keys(prevVbal), ...Object.keys(currVbal)]);
+  const totalVendorOwed = [...allVendorNames].reduce((s,v)=>{
+    return s + (prevVbal[v]?.net||0) + (currVbal[v]?.net||0);
+  }, 0);
   const vendorCards = [...allVendorNames]
-    .sort((a,b)=>((vmap[b]||0)-(vpmap[b]||0))-((vmap[a]||0)-(vpmap[a]||0)))
-    .map(vendor=>{
-      const owed = vmap[vendor]||0;
-      const paid = vpmap[vendor]||0;
-      const net  = owed - paid;
+    .sort((a,b)=>((prevVbal[b]?.net||0)+(currVbal[b]?.net||0))-((prevVbal[a]?.net||0)+(currVbal[a]?.net||0)))
+    .map(v => {
+      const prevNet  = prevVbal[v]?.net  || 0;
+      const currOwed = currVbal[v]?.owed || 0;
+      const currPaid = currVbal[v]?.paid || 0;
+      const currNet  = currVbal[v]?.net  || 0;
+      const total    = prevNet + currNet;
       return `
     <div class="border rounded-lg p-3">
-      <div class="flex justify-between items-start">
-        <span class="text-sm font-semibold text-slate-700">${esc(vendor)}</span>
-        <span class="text-sm font-bold ${net>0?'text-amber-700':'text-green-600'} ml-2">${net>0?Rs(net):'Cleared'}</span>
+      <div class="flex justify-between items-start mb-2">
+        <span class="text-sm font-semibold text-slate-700">${esc(v)}</span>
+        <span class="text-sm font-bold ${total>0?'text-amber-700':'text-green-600'} shrink-0 ml-2">${total>0?Rs(total):'Cleared'}</span>
       </div>
-      ${paid>0?`<div class="grid grid-cols-2 gap-2 mt-1.5 text-center text-xs">
-        <div><div class="text-gray-400">Credit Expenses</div><div class="font-semibold text-red-500">${Rs(owed)}</div></div>
-        <div><div class="text-gray-400">Paid</div><div class="font-semibold text-green-600">${Rs(paid)}</div></div>
-      </div>`:''}
+      <div class="grid grid-cols-2 gap-1 text-center text-xs">
+        <div class="bg-red-50 rounded p-1"><div class="text-gray-400">Credit (this month)</div><div class="font-semibold text-red-500">${Rs(currOwed)}</div></div>
+        <div class="bg-green-50 rounded p-1"><div class="text-gray-400">Paid (this month)</div><div class="font-semibold text-green-600">${Rs(currPaid)}</div></div>
+      </div>
+      ${prevNet>0?`<div class="text-xs text-right mt-1.5 text-gray-400">Prev. months balance: <span class="font-semibold text-orange-500">${Rs(prevNet)}</span></div>`:''}
     </div>`;
     }).join('');
 
-  // Client balance cards
-  const cmap = clientBalance(entries);
-  const totalCredit = Object.values(cmap).reduce((s,d)=>s+d.credit, 0);
-  const clientCards = Object.entries(cmap)
-    .sort((a,b)=>b[1].netOutstanding-a[1].netOutstanding)
-    .map(([client,d])=>`
+  // ── Client balance with carry-over ──
+  const prevCmap = clientBalance(prevEntries);
+  const currCmap = clientBalance(entries);
+  const allClientNames = new Set([...Object.keys(prevCmap), ...Object.keys(currCmap)]);
+  const totalCredit = [...allClientNames].reduce((s,c)=>{
+    return s + (prevCmap[c]?.netOutstanding||0) + (currCmap[c]?.netOutstanding||0);
+  }, 0);
+  const clientCards = [...allClientNames]
+    .sort((a,b)=>((prevCmap[b]?.netOutstanding||0)+(currCmap[b]?.netOutstanding||0))-((prevCmap[a]?.netOutstanding||0)+(currCmap[a]?.netOutstanding||0)))
+    .map(client => {
+      const prevOut  = prevCmap[client]?.netOutstanding || 0;
+      const inv      = currCmap[client]?.invoiced   || 0;
+      const cash     = currCmap[client]?.cash       || 0;
+      const payments = currCmap[client]?.payments   || 0;
+      const currNet  = currCmap[client]?.netOutstanding || 0;
+      const total    = prevOut + currNet;
+      return `
     <div class="border rounded-lg p-3">
-      <div class="font-semibold text-slate-700 mb-2 text-sm">${esc(client)}</div>
-      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
-        <div><div class="text-xs text-gray-400">Invoiced</div><div class="font-bold text-slate-600 text-sm">${Rs(d.invoiced)}</div></div>
-        <div><div class="text-xs text-gray-400">Trip Cash</div><div class="font-bold text-green-600 text-sm">${Rs(d.cash)}</div></div>
-        <div><div class="text-xs text-gray-400">Payments Recv.</div><div class="font-bold text-teal-600 text-sm">${Rs(d.payments)}</div></div>
-        <div><div class="text-xs text-gray-400">Net Outstanding</div><div class="font-bold text-sm ${d.netOutstanding>0?'text-red-600':'text-gray-400'}">${Rs(d.netOutstanding)}</div></div>
+      <div class="flex justify-between items-start mb-2">
+        <span class="font-semibold text-slate-700 text-sm">${esc(client)}</span>
+        <span class="text-sm font-bold ${total>0?'text-red-600':'text-gray-400'} shrink-0 ml-2">${total>0?Rs(total):'Cleared'}</span>
       </div>
-    </div>`).join('');
+      <div class="grid grid-cols-3 gap-1 text-center text-xs">
+        <div class="bg-gray-50 rounded p-1"><div class="text-gray-400">Invoiced</div><div class="font-semibold text-slate-600">${Rs(inv)}</div></div>
+        <div class="bg-green-50 rounded p-1"><div class="text-gray-400">Cash Recv.</div><div class="font-semibold text-green-600">${Rs(cash)}</div></div>
+        <div class="bg-teal-50 rounded p-1"><div class="text-gray-400">Payments</div><div class="font-semibold text-teal-600">${Rs(payments)}</div></div>
+      </div>
+      ${prevOut>0?`<div class="text-xs text-right mt-1.5 text-gray-400">Prev. months balance: <span class="font-semibold text-orange-500">${Rs(prevOut)}</span></div>`:''}
+    </div>`;
+    }).join('');
 
   // Daily breakdown cards
   const dayCards = entries.map(e=>{
@@ -1100,7 +1146,7 @@ function buildMonthly(month) {
       <div class="p-3 space-y-2">${clientCards}</div>
     </div>
 
-    ${allVendorNames.size > 0 ? `
+    ${allVendorNames.size>0 ? `
     <div class="bg-white rounded-xl border shadow-sm mb-4">
       <div class="p-3 border-b flex justify-between items-center">
         <span class="font-semibold text-slate-700">Vendor Payables</span>
@@ -1250,6 +1296,10 @@ function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;'
 
 // ─── INIT ───────────────────────────────────────────────────
 FS = blankFS();
+document.addEventListener('keydown', e => {
+  if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && e.target.type === 'number') e.preventDefault();
+}, true);
+
 renderForm();
 showView('entry');
 initData();
