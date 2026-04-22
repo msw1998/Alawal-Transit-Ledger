@@ -127,16 +127,18 @@ const Rs = n => 'Rs. ' + (n||0).toLocaleString('en-PK');
 const N  = n => (n||0).toLocaleString('en-PK');
 
 function calc(e) {
-  const cashInc  = e.trips.reduce((s,t)=> t.pm==='cash' ? s+(+t.income||0) : t.pm==='partial' ? s+(+t.cashAmt||0) : s, 0);
-  const totalInc = e.trips.reduce((s,t)=>s+(+t.income||0),0);
-  const tripExp  = e.trips.reduce((s,t)=>s+t.exp.reduce((ss,x)=>ss+(+x.amt||0),0),0);
-  const miscExp  = e.misc.reduce((s,x)=>s+(+x.amt||0),0);
-  const coExp    = (e.coexp||[]).reduce((s,x)=>s+(+x.amt||0),0);
-  const totalExp = tripExp + miscExp + coExp;
-  const drvIn    = (+e.prevCash||0) + (+e.advance||0) + cashInc;
-  const drvRem   = drvIn - tripExp - miscExp;
-  const profit   = totalInc - totalExp;
-  return { cashInc, totalInc, tripExp, miscExp, coExp, totalExp, drvIn, drvRem, profit };
+  const cashInc      = e.trips.reduce((s,t)=> t.pm==='cash' ? s+(+t.income||0) : t.pm==='partial' ? s+(+t.cashAmt||0) : s, 0);
+  const totalInc     = e.trips.reduce((s,t)=>s+(+t.income||0),0);
+  const tripExpCash  = e.trips.reduce((s,t)=>s+t.exp.reduce((ss,x)=>ss+((x.mode||'cash')==='cash'?(+x.amt||0):0),0),0);
+  const tripExpCredit= e.trips.reduce((s,t)=>s+t.exp.reduce((ss,x)=>ss+(x.mode==='credit'?(+x.amt||0):0),0),0);
+  const tripExp      = tripExpCash + tripExpCredit;
+  const miscExp      = e.misc.reduce((s,x)=>s+(+x.amt||0),0);
+  const coExp        = (e.coexp||[]).reduce((s,x)=>s+(+x.amt||0),0);
+  const totalExp     = tripExp + miscExp + coExp;
+  const drvIn        = (+e.prevCash||0) + (+e.advance||0) + cashInc;
+  const drvRem       = drvIn - tripExpCash - miscExp;   // only cash expenses come out of driver's pocket
+  const profit       = totalInc - totalExp;
+  return { cashInc, totalInc, tripExpCash, tripExpCredit, tripExp, miscExp, coExp, totalExp, drvIn, drvRem, profit };
 }
 
 // ─── FORM STATE ─────────────────────────────────────────────
@@ -162,8 +164,10 @@ function readDOM() {
     if (r) t.pm = r.value;
     t.cashAmt = +(g(`t-cash-${ti}`)||{}).value||0;
     t.exp.forEach((x,ei)=>{
-      x.desc = (g(`t-ed-${ti}-${ei}`)||{}).value||x.desc||'';
-      x.amt  = +(g(`t-ea-${ti}-${ei}`)||{}).value||0;
+      x.desc   = (g(`t-ed-${ti}-${ei}`)||{}).value||x.desc||'';
+      x.amt    = +(g(`t-ea-${ti}-${ei}`)||{}).value||0;
+      x.mode   = (g(`t-em-${ti}-${ei}`)||{}).value||x.mode||'cash';
+      x.vendor = (g(`t-ev-${ti}-${ei}`)||{}).value||x.vendor||'';
     });
   });
   FS.misc.forEach((x,i)=>{
@@ -186,7 +190,7 @@ function readDOM() {
 
 function _focus(id) { const el=document.getElementById(id); if(el){el.focus();el.scrollIntoView({block:'nearest'});} }
 
-function addTrip()    { readDOM(); FS.trips.push({id:uid(),dest:'',cust:'',income:0,pm:'cash',exp:[{desc:'Jhampir Dhakka Loading',amt:0},{desc:'Royalty',amt:0},{desc:'Driver Trip Commission',amt:0}]}); renderForm(); _focus('t-dest-'+(FS.trips.length-1)); }
+function addTrip()    { readDOM(); FS.trips.push({id:uid(),dest:'',cust:'',income:0,pm:'cash',exp:[{desc:'Jhampir Dhakka Loading',amt:0,mode:'cash',vendor:''},{desc:'Royalty',amt:0,mode:'cash',vendor:''},{desc:'Driver Trip Commission',amt:0,mode:'cash',vendor:''},{desc:'Toll Plaza',amt:0,mode:'cash',vendor:''}]}); renderForm(); _focus('t-dest-'+(FS.trips.length-1)); }
 function remTrip(i)   { readDOM(); FS.trips.splice(i,1); renderForm(); }
 function addTE(ti)    { readDOM(); FS.trips[ti].exp.push({desc:'',amt:0}); renderForm(); _focus('t-ed-'+ti+'-'+(FS.trips[ti].exp.length-1)); }
 function remTE(ti,ei) { readDOM(); FS.trips[ti].exp.splice(ei,1); renderForm(); }
@@ -211,7 +215,7 @@ function updateSummary() {
   if (!el('s-inc')) return;
   el('s-inc').textContent   = Rs(c.totalInc);
   el('s-exp').textContent   = Rs(c.totalExp);
-  el('s-exp2').textContent  = `Trip: ${N(c.tripExp)} · Misc: ${N(c.miscExp)} · Co.: ${N(c.coExp)}`;
+  el('s-exp2').textContent  = `Trip Cash: ${N(c.tripExpCash)}${c.tripExpCredit?` · Trip Credit: ${N(c.tripExpCredit)}`:''} · Misc: ${N(c.miscExp)} · Co.: ${N(c.coExp)}`;
   el('s-prof').textContent  = Rs(c.profit);
   el('s-prof').className    = `text-xl font-bold mt-1 ${c.profit>=0?'text-blue-700':'text-red-600'}`;
   el('s-drvin').textContent = Rs(c.drvIn);
@@ -248,6 +252,13 @@ function autoFillPrevCash() {
     FS.prevCash = rem || 0;
     updateSummary();
   }
+}
+
+function toggleExpMode(ti, ei) {
+  const sel = document.getElementById(`t-em-${ti}-${ei}`);
+  const div = document.getElementById(`t-ev-wrap-${ti}-${ei}`);
+  if (sel && div) div.classList.toggle('hidden', sel.value !== 'credit');
+  updateSummary();
 }
 
 function togglePartial(ti) {
@@ -331,13 +342,24 @@ function renderForm() {
   const tripsHTML = FS.trips.map((t,ti)=>{
     const tot = t.exp.reduce((s,x)=>s+(+x.amt||0),0);
     const expRows = t.exp.map((x,ei)=>`
-      <div class="flex gap-2 items-center">
-        <input id="t-ed-${ti}-${ei}" type="text" value="${esc(x.desc)}" placeholder="Description"
-          class="flex-1 ${INPS}" oninput="updateSummary()">
-        <input id="t-ea-${ti}-${ei}" type="number" inputmode="numeric" value="${x.amt||''}" placeholder="0"
-          class="w-24 ${INPS} text-right" oninput="updateSummary()"
-          onkeydown="if(event.key==='Enter'){event.preventDefault();addTE(${ti});}">
-        <button onclick="remTE(${ti},${ei})" class="w-9 h-9 flex items-center justify-center text-red-400 hover:text-red-600 shrink-0 rounded-lg hover:bg-red-50 text-lg">✕</button>
+      <div class="rounded-lg border bg-white px-2 py-1.5 space-y-1.5">
+        <div class="flex gap-1.5 items-center">
+          <input id="t-ed-${ti}-${ei}" type="text" value="${esc(x.desc)}" placeholder="Description"
+            class="flex-1 ${INPS}" oninput="updateSummary()">
+          <input id="t-ea-${ti}-${ei}" type="number" inputmode="numeric" value="${x.amt||''}" placeholder="0"
+            class="w-20 ${INPS} text-right" oninput="updateSummary()"
+            onkeydown="if(event.key==='Enter'){event.preventDefault();addTE(${ti});}">
+          <select id="t-em-${ti}-${ei}" class="border rounded-lg px-1.5 py-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white shrink-0"
+            onchange="toggleExpMode(${ti},${ei})">
+            <option value="cash"   ${(x.mode||'cash')==='cash'  ?'selected':''}>Cash</option>
+            <option value="credit" ${x.mode==='credit'?'selected':''}>Credit</option>
+          </select>
+          <button onclick="remTE(${ti},${ei})" class="w-9 h-9 flex items-center justify-center text-red-400 hover:text-red-600 shrink-0 rounded-lg hover:bg-red-50 text-lg">✕</button>
+        </div>
+        <div id="t-ev-wrap-${ti}-${ei}" class="${x.mode==='credit'?'':'hidden'}">
+          <input id="t-ev-${ti}-${ei}" type="text" value="${esc(x.vendor||'')}" placeholder="Vendor name"
+            class="w-full ${INPS} border-amber-300 focus:ring-amber-300 bg-amber-50 text-sm">
+        </div>
       </div>`).join('');
 
     return `
@@ -634,8 +656,9 @@ function openDay(id) {
 
   // Mobile-friendly trip cards instead of a wide table
   const tripCards = e.trips.map((t,i)=>{
-    const te = t.exp.reduce((s,x)=>s+(+x.amt||0),0);
-    const eb = t.exp.filter(x=>+x.amt>0).map(x=>`${x.desc}: ${N(x.amt)}`).join(' · ');
+    const te        = t.exp.reduce((s,x)=>s+(+x.amt||0),0);
+    const cashExp   = t.exp.filter(x=>+x.amt>0&&(x.mode||'cash')==='cash').map(x=>`${esc(x.desc)}: ${N(x.amt)}`).join(' · ');
+    const creditExp = t.exp.filter(x=>+x.amt>0&&x.mode==='credit').map(x=>`${esc(x.desc)}: ${N(x.amt)}${x.vendor?' ('+esc(x.vendor)+')':''}`).join(' · ');
     return `
     <div class="border rounded-lg p-3 mb-2">
       <div class="flex justify-between items-start mb-1">
@@ -646,9 +669,13 @@ function openDay(id) {
         </div>
         <span class="text-xs px-2 py-1 rounded-full shrink-0 ml-2 ${t.pm==='cash'?'bg-green-100 text-green-700':t.pm==='partial'?'bg-blue-100 text-blue-700':'bg-amber-100 text-amber-700'}">${t.pm==='cash'?'Cash':t.pm==='partial'?`Partial (Cash: ${Rs(t.cashAmt||0)})` :'Credit'}</span>
       </div>
-      <div class="flex justify-between items-center mt-2 pt-2 border-t">
-        <div class="text-xs text-gray-400">${eb||'No expenses'}</div>
-        <div class="text-right shrink-0 ml-2">
+      <div class="flex justify-between items-start mt-2 pt-2 border-t gap-2">
+        <div class="flex-1 min-w-0">
+          ${cashExp?`<div class="text-xs text-gray-400">${cashExp}</div>`:''}
+          ${creditExp?`<div class="text-xs text-amber-600 mt-0.5">Credit: ${creditExp}</div>`:''}
+          ${!cashExp&&!creditExp?`<div class="text-xs text-gray-400">No expenses</div>`:''}
+        </div>
+        <div class="text-right shrink-0">
           <div class="text-sm font-bold text-green-600">${Rs(t.income)}</div>
           <div class="text-xs text-red-500">Exp: ${Rs(te)}</div>
         </div>
@@ -875,6 +902,25 @@ function buildMonthly(month) {
       </div>
     </div>`).join('');
 
+  // Vendor payables (credit trip expenses)
+  const vmap = {};
+  entries.forEach(e => {
+    e.trips.forEach(t => {
+      (t.exp||[]).forEach(x => {
+        if (x.mode === 'credit' && +x.amt > 0) {
+          const v = x.vendor?.trim() || '(Unknown Vendor)';
+          vmap[v] = (vmap[v]||0) + (+x.amt);
+        }
+      });
+    });
+  });
+  const totalVendorOwed = Object.values(vmap).reduce((s,v)=>s+v, 0);
+  const vendorCards = Object.entries(vmap).sort((a,b)=>b[1]-a[1]).map(([vendor,total])=>`
+    <div class="flex justify-between items-center py-2 px-1 border-b last:border-b-0">
+      <span class="text-sm font-medium text-slate-700">${esc(vendor)}</span>
+      <span class="text-sm font-bold text-amber-700">${Rs(total)}</span>
+    </div>`).join('');
+
   // Client balance cards
   const cmap = clientBalance(entries);
   const totalCredit = Object.values(cmap).reduce((s,d)=>s+d.credit, 0);
@@ -953,6 +999,15 @@ function buildMonthly(month) {
       </div>
       <div class="p-3 space-y-2">${clientCards}</div>
     </div>
+
+    ${totalVendorOwed > 0 ? `
+    <div class="bg-white rounded-xl border shadow-sm mb-4">
+      <div class="p-3 border-b flex justify-between items-center">
+        <span class="font-semibold text-slate-700">Vendor Payables (Credit Expenses)</span>
+        <span class="text-xs font-semibold text-amber-700 bg-amber-50 px-2 py-1 rounded-full">Total Owed: ${Rs(totalVendorOwed)}</span>
+      </div>
+      <div class="p-3">${vendorCards}</div>
+    </div>` : ''}
 
     <div class="bg-white rounded-xl border shadow-sm">
       <div class="p-3 border-b flex justify-between items-center">
