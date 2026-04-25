@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Create Account — AlAwal Ledger</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-slate-900 min-h-screen flex items-center justify-center px-4 py-8">
+
+<div class="w-full max-w-sm">
+  <!-- Logo -->
+  <div class="text-center mb-8">
+    <img src="AlawalTransit Logo.png" alt="AlAwal Transit" class="w-16 h-16 rounded-full object-cover mx-auto mb-4 shadow-lg">
+    <h1 class="text-2xl font-bold text-white">AlAwal Ledger</h1>
+    <p class="text-slate-400 text-sm mt-1">Create your business account</p>
+  </div>
+
+  <!-- Step 1: Account Details -->
+  <div id="step-1" class="bg-white rounded-2xl shadow-2xl p-8">
+    <div class="flex items-center gap-2 mb-6">
+      <div class="w-6 h-6 bg-amber-500 rounded-full flex items-center justify-center text-white text-xs font-bold">1</div>
+      <span class="text-sm font-medium text-gray-500">Account Details</span>
+      <div class="flex-1 h-px bg-gray-200 mx-2"></div>
+      <div class="w-6 h-6 bg-gray-200 rounded-full flex items-center justify-center text-gray-400 text-xs font-bold">2</div>
+      <span class="text-sm font-medium text-gray-400">Business Setup</span>
+    </div>
+
+    <div id="error-box-1" class="hidden mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm"></div>
+
+    <form id="account-form" onsubmit="handleAccountStep(event)" class="space-y-4">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Your Name</label>
+        <input id="full-name" type="text" required
+          class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+          placeholder="Muhammad Wasif">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
+        <input id="email" type="email" required autocomplete="email"
+          class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+          placeholder="you@example.com">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+        <input id="password" type="password" required minlength="6"
+          class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+          placeholder="At least 6 characters">
+      </div>
+      <button type="submit" id="step1-btn"
+        class="w-full bg-amber-500 hover:bg-amber-600 text-white font-semibold py-2.5 rounded-lg transition-colors text-sm">
+        Continue →
+      </button>
+    </form>
+
+    <p class="text-center text-sm text-gray-500 mt-5">
+      Already have an account?
+      <a href="/login.html" class="text-amber-600 font-medium hover:underline">Sign in</a>
+    </p>
+  </div>
+
+  <!-- Step 2: Business Setup -->
+  <div id="step-2" class="hidden bg-white rounded-2xl shadow-2xl p-8">
+    <div class="flex items-center gap-2 mb-6">
+      <div class="w-6 h-6 bg-green-500 rounded-full flex items-center justify-center text-white text-xs">✓</div>
+      <span class="text-sm font-medium text-gray-400">Account Details</span>
+      <div class="flex-1 h-px bg-amber-400 mx-2"></div>
+      <div class="w-6 h-6 bg-amber-500 rounded-full flex items-center justify-center text-white text-xs font-bold">2</div>
+      <span class="text-sm font-medium text-gray-500">Business Setup</span>
+    </div>
+
+    <div id="error-box-2" class="hidden mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm"></div>
+
+    <form id="org-form" onsubmit="handleOrgStep(event)" class="space-y-4">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Business Name</label>
+        <input id="org-name" type="text" required
+          class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+          placeholder="e.g. AlAwal Transit">
+        <p class="text-xs text-gray-400 mt-1">This appears in your dashboard header</p>
+      </div>
+      <button type="submit" id="step2-btn"
+        class="w-full bg-amber-500 hover:bg-amber-600 text-white font-semibold py-2.5 rounded-lg transition-colors text-sm">
+        Create Dashboard →
+      </button>
+    </form>
+  </div>
+</div>
+
+<script>
+const API = '/api';
+let _sb   = null;
+let _session = null;
+let _fullName = '';
+
+async function init() {
+  const cfg = await fetch(`${API}/config`).then(r => r.json()).catch(() => ({}));
+  if (!cfg.supabaseUrl || !cfg.supabaseAnonKey) {
+    alert('Configuration error. Contact administrator.');
+    return;
+  }
+  _sb = window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
+
+  // If user comes here already signed in (e.g., after invite link), skip to step 2
+  const { data: { session } } = await _sb.auth.getSession();
+  if (session) {
+    _session = session;
+    // Check if they already have an org
+    const profile = await apiFetch('org-auth?action=profile').catch(() => null);
+    if (profile && !profile.needsOrg) {
+      window.location.href = '/index.html';
+      return;
+    }
+    // Jump straight to business setup
+    showStep2();
+  }
+
+  // Check if redirected from invite link (hash contains access_token)
+  _sb.auth.onAuthStateChange(async (event, session) => {
+    if (event === 'SIGNED_IN' && session && !_session) {
+      _session = session;
+      const profile = await apiFetch('org-auth?action=profile').catch(() => null);
+      if (profile && !profile.needsOrg) {
+        window.location.href = '/index.html';
+      } else {
+        showStep2();
+      }
+    }
+  });
+}
+
+async function apiFetch(path, opts = {}) {
+  const headers = { 'Content-Type': 'application/json' };
+  if (_session?.access_token) headers['Authorization'] = `Bearer ${_session.access_token}`;
+  const r = await fetch(`${API}/${path}`, {
+    method: opts.method || 'GET',
+    headers,
+    body: opts.body ? JSON.stringify(opts.body) : undefined,
+  });
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  return r.json();
+}
+
+async function handleAccountStep(e) {
+  e.preventDefault();
+  const btn = document.getElementById('step1-btn');
+  btn.textContent = 'Creating account…';
+  btn.disabled = true;
+  document.getElementById('error-box-1').classList.add('hidden');
+
+  const email    = document.getElementById('email').value.trim();
+  const password = document.getElementById('password').value;
+  _fullName = document.getElementById('full-name').value.trim();
+
+  const { data, error } = await _sb.auth.signUp({ email, password });
+  if (error) {
+    document.getElementById('error-box-1').textContent = error.message;
+    document.getElementById('error-box-1').classList.remove('hidden');
+    btn.textContent = 'Continue →';
+    btn.disabled = false;
+    return;
+  }
+  // session is null when Supabase email confirmation is enabled.
+  // Disable it in Supabase: Authentication → Providers → Email → uncheck "Confirm email"
+  if (!data.session) {
+    document.getElementById('error-box-1').textContent = 'Please disable "Confirm email" in Supabase → Authentication → Providers → Email, then try again.';
+    document.getElementById('error-box-1').classList.remove('hidden');
+    btn.textContent = 'Continue →';
+    btn.disabled = false;
+    return;
+  }
+  _session = data.session;
+  showStep2();
+}
+
+async function handleOrgStep(e) {
+  e.preventDefault();
+  const btn = document.getElementById('step2-btn');
+  btn.textContent = 'Setting up…';
+  btn.disabled = true;
+  document.getElementById('error-box-2').classList.add('hidden');
+
+  const orgName = document.getElementById('org-name').value.trim();
+
+  try {
+    await apiFetch('org-auth?action=create-org', {
+      method: 'POST',
+      body: { orgName, contactName: _fullName },
+    });
+    window.location.href = '/index.html';
+  } catch (err) {
+    document.getElementById('error-box-2').textContent = 'Error: ' + err.message;
+    document.getElementById('error-box-2').classList.remove('hidden');
+    btn.textContent = 'Create Dashboard →';
+    btn.disabled = false;
+  }
+}
+
+function showStep2() {
+  document.getElementById('step-1').classList.add('hidden');
+  document.getElementById('step-2').classList.remove('hidden');
+}
+
+init();
+</script>
+</body>
+</html>

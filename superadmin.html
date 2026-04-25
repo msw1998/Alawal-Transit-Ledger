@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Superadmin — AlAwal Ledger</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-gray-100 min-h-screen">
+
+<!-- NAV -->
+<nav class="bg-slate-900 text-white px-6 py-3 flex items-center justify-between shadow-lg">
+  <div class="flex items-center gap-3">
+    <img src="AlawalTransit Logo.png" alt="" class="h-8 w-8 rounded-full object-cover">
+    <div>
+      <div class="font-bold text-sm">AlAwal Ledger</div>
+      <div class="text-xs text-purple-400 font-semibold">⚡ Superadmin Panel</div>
+    </div>
+  </div>
+  <div class="flex items-center gap-3">
+    <a href="/index.html" class="text-slate-400 hover:text-white text-sm">← Back to App</a>
+    <button onclick="logout()" class="text-red-400 hover:text-red-300 text-sm">Logout</button>
+  </div>
+</nav>
+
+<div class="max-w-6xl mx-auto px-4 py-8">
+
+  <!-- Header stats -->
+  <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+    <div class="bg-white rounded-xl p-4 shadow-sm">
+      <div class="text-2xl font-bold text-slate-800" id="stat-orgs">—</div>
+      <div class="text-xs text-gray-500 mt-1">Total Organizations</div>
+    </div>
+    <div class="bg-white rounded-xl p-4 shadow-sm">
+      <div class="text-2xl font-bold text-slate-800" id="stat-members">—</div>
+      <div class="text-xs text-gray-500 mt-1">Total Members</div>
+    </div>
+    <div class="bg-white rounded-xl p-4 shadow-sm">
+      <div class="text-2xl font-bold text-slate-800" id="stat-entries">—</div>
+      <div class="text-xs text-gray-500 mt-1">Total Entries</div>
+    </div>
+    <div class="bg-white rounded-xl p-4 shadow-sm">
+      <div class="text-2xl font-bold text-amber-600" id="stat-paid">0</div>
+      <div class="text-xs text-gray-500 mt-1">Paid Accounts</div>
+    </div>
+  </div>
+
+  <!-- Org table -->
+  <div class="bg-white rounded-2xl shadow-sm overflow-hidden">
+    <div class="px-6 py-4 border-b border-gray-100 flex justify-between items-center">
+      <h2 class="font-semibold text-gray-800">All Organizations</h2>
+      <span class="text-xs text-gray-400" id="last-refresh">Loading…</span>
+    </div>
+
+    <div id="loading" class="p-8 text-center text-gray-400 text-sm">Loading organizations…</div>
+    <div id="error-msg" class="hidden p-8 text-center text-red-500 text-sm"></div>
+
+    <table id="org-table" class="hidden w-full text-sm">
+      <thead class="bg-gray-50 text-xs text-gray-500 uppercase tracking-wide">
+        <tr>
+          <th class="px-6 py-3 text-left">Business</th>
+          <th class="px-6 py-3 text-left">Owner Email</th>
+          <th class="px-6 py-3 text-center">Members</th>
+          <th class="px-6 py-3 text-center">Entries</th>
+          <th class="px-6 py-3 text-left">Plan</th>
+          <th class="px-6 py-3 text-left">Payment</th>
+          <th class="px-6 py-3 text-left">Created</th>
+        </tr>
+      </thead>
+      <tbody id="org-tbody" class="divide-y divide-gray-100"></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+const API = '/api';
+let _sb = null;
+let _token = null;
+
+async function init() {
+  const cfg = await fetch(`${API}/config`).then(r => r.json()).catch(() => ({}));
+  if (!cfg.supabaseUrl || !cfg.supabaseAnonKey) {
+    showError('Configuration error.');
+    return;
+  }
+  _sb = window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
+
+  const { data: { session } } = await _sb.auth.getSession();
+  if (!session) { window.location.href = '/login.html'; return; }
+  _token = session.access_token;
+
+  _sb.auth.onAuthStateChange((e, s) => {
+    if (e === 'SIGNED_OUT') window.location.href = '/login.html';
+    if (s) _token = s.access_token;
+  });
+
+  loadOrgs();
+}
+
+async function loadOrgs() {
+  document.getElementById('loading').classList.remove('hidden');
+  document.getElementById('org-table').classList.add('hidden');
+  document.getElementById('error-msg').classList.add('hidden');
+
+  const r = await fetch(`${API}/superadmin-api`, {
+    headers: { Authorization: `Bearer ${_token}` },
+  });
+
+  if (r.status === 403) {
+    showError('Access denied. You are not a superadmin.');
+    return;
+  }
+  if (!r.ok) {
+    showError('Failed to load data.');
+    return;
+  }
+
+  const orgs = await r.json();
+  document.getElementById('loading').classList.add('hidden');
+
+  const totalMembers = orgs.reduce((s, o) => s + (o.memberCount || 0), 0);
+  const totalEntries = orgs.reduce((s, o) => s + (o.entryCount || 0), 0);
+  const paidOrgs = orgs.filter(o => o.payment_status === 'paid').length;
+
+  document.getElementById('stat-orgs').textContent    = orgs.length;
+  document.getElementById('stat-members').textContent = totalMembers;
+  document.getElementById('stat-entries').textContent = totalEntries;
+  document.getElementById('stat-paid').textContent    = paidOrgs;
+  document.getElementById('last-refresh').textContent = 'Updated ' + new Date().toLocaleTimeString();
+
+  const tbody = document.getElementById('org-tbody');
+  tbody.innerHTML = orgs.map(org => {
+    const planBadge = org.plan === 'paid'
+      ? '<span class="bg-green-100 text-green-700 px-2 py-0.5 rounded-full text-xs font-medium">Paid</span>'
+      : '<span class="bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full text-xs font-medium">Free</span>';
+    const payBadge = org.payment_status === 'paid'
+      ? '<span class="text-green-600 font-medium">✓ Paid</span>'
+      : '<span class="text-gray-400">—</span>';
+    const created = new Date(org.created_at).toLocaleDateString('en-PK', { day:'2-digit', month:'short', year:'numeric' });
+    return `<tr class="hover:bg-gray-50 transition-colors">
+      <td class="px-6 py-4">
+        <div class="font-semibold text-gray-800">${esc(org.name)}</div>
+        ${org.contact_name ? `<div class="text-xs text-gray-400">${esc(org.contact_name)}</div>` : ''}
+      </td>
+      <td class="px-6 py-4 text-gray-600">${esc(org.contact_email || '—')}</td>
+      <td class="px-6 py-4 text-center">
+        <span class="bg-blue-50 text-blue-700 font-semibold px-2 py-0.5 rounded-full text-xs">${org.memberCount}</span>
+      </td>
+      <td class="px-6 py-4 text-center">
+        <span class="bg-slate-100 text-slate-600 font-semibold px-2 py-0.5 rounded-full text-xs">${org.entryCount}</span>
+      </td>
+      <td class="px-6 py-4">${planBadge}</td>
+      <td class="px-6 py-4">${payBadge}</td>
+      <td class="px-6 py-4 text-gray-500 text-xs">${created}</td>
+    </tr>`;
+  }).join('');
+
+  document.getElementById('org-table').classList.remove('hidden');
+}
+
+async function logout() {
+  await _sb.auth.signOut();
+  window.location.href = '/login.html';
+}
+
+function showError(msg) {
+  document.getElementById('loading').classList.add('hidden');
+  const el = document.getElementById('error-msg');
+  el.textContent = msg;
+  el.classList.remove('hidden');
+}
+
+function esc(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+init();
+</script>
+</body>
+</html>

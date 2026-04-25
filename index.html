@@ -6,6 +6,7 @@
 <title>AlAwal Transit — Daily Ledger</title>
 <link rel="icon" type="image/png" href="AlawalTransit Logo.png">
 <script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
@@ -30,21 +31,53 @@ input[type=number] { cursor: text; }
   <div class="flex items-center gap-3">
     <img src="AlawalTransit Logo.png" alt="AlAwal Transit" class="h-9 w-9 rounded-full object-cover shrink-0">
     <div>
-      <div class="font-bold text-base leading-tight">AlAwal Transit</div>
+      <div class="font-bold text-base leading-tight org-name-el">Loading…</div>
       <div class="text-xs text-slate-400 leading-tight hidden sm:block">Daily Ledger System</div>
     </div>
   </div>
   <!-- Desktop nav tabs -->
   <div class="hidden md:flex gap-1 items-center">
     <button onclick="FS=blankFS();showView('entry')" data-view="entry" class="nav-btn px-4 py-2 rounded-lg text-sm font-medium text-slate-300 hover:bg-slate-700 transition-colors">+ New Entry</button>
-    <button onclick="showView('daily')" data-view="daily" class="nav-btn px-4 py-2 rounded-lg text-sm font-medium text-slate-300 hover:bg-slate-700 transition-colors">Daily View</button>
-    <button onclick="showView('monthly')" data-view="monthly" class="nav-btn px-4 py-2 rounded-lg text-sm font-medium text-slate-300 hover:bg-slate-700 transition-colors">Dashboard</button>
+    <button onclick="showView('daily')" data-view="daily" class="nav-btn admin-only-tab px-4 py-2 rounded-lg text-sm font-medium text-slate-300 hover:bg-slate-700 transition-colors">Daily View</button>
+    <button onclick="showView('monthly')" data-view="monthly" class="nav-btn admin-only-tab px-4 py-2 rounded-lg text-sm font-medium text-slate-300 hover:bg-slate-700 transition-colors">Dashboard</button>
     <div class="w-px h-5 bg-slate-600 mx-1"></div>
     <span class="sync-status text-xs font-medium text-slate-400 min-w-16 text-right"></span>
     <div class="w-px h-5 bg-slate-600 mx-1"></div>
-    <button onclick="exportData()" class="px-3 py-2 rounded-lg text-sm font-medium text-amber-400 hover:bg-slate-700 transition-colors" title="Export to Excel">↓ Export Excel</button>
+    <button onclick="exportData()" class="admin-only-tab px-3 py-2 rounded-lg text-sm font-medium text-amber-400 hover:bg-slate-700 transition-colors" title="Export to Excel">↓ Export Excel</button>
+    <div class="w-px h-5 bg-slate-600 mx-1"></div>
+    <!-- User menu -->
+    <div class="relative">
+      <button onclick="toggleUserMenu()" class="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-700 transition-colors">
+        <div class="w-7 h-7 rounded-full bg-amber-500 flex items-center justify-center text-xs font-bold text-white" id="user-avatar">?</div>
+        <svg class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7"/></svg>
+      </button>
+      <div id="user-menu-dropdown" class="hidden absolute right-0 top-11 bg-white rounded-xl shadow-2xl border border-gray-100 py-1.5 w-52 z-50 text-gray-800">
+        <div class="px-4 py-2 text-xs text-gray-400 truncate border-b border-gray-100 mb-1" id="user-menu-email">…</div>
+        <button id="team-btn" onclick="openTeamModal()" class="w-full text-left px-4 py-2 text-sm hover:bg-gray-50">👥 Manage Team</button>
+        <a href="/superadmin.html" id="sa-link" class="hidden block px-4 py-2 text-sm text-purple-600 hover:bg-gray-50">⚡ Superadmin Panel</a>
+        <div class="border-t border-gray-100 mt-1"></div>
+        <button onclick="logout()" class="w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-gray-50">→ Sign Out</button>
+      </div>
+    </div>
   </div>
+  <!-- Mobile: user avatar opens mobile menu -->
+  <button onclick="document.getElementById('mobile-user-menu').classList.toggle('hidden')" class="md:hidden flex items-center gap-2">
+    <div class="w-8 h-8 rounded-full bg-amber-500 flex items-center justify-center text-sm font-bold text-white" id="user-avatar-mobile">?</div>
+  </button>
 </nav>
+
+<!-- Mobile user dropdown (shares same dropdown element, shown below nav) -->
+<div id="mobile-user-menu" class="md:hidden hidden fixed inset-0 z-50 bg-black/40" onclick="closeMobileMenu()">
+  <div class="absolute top-16 right-4 bg-white rounded-xl shadow-2xl border border-gray-100 py-1.5 w-52 text-gray-800" onclick="event.stopPropagation()">
+    <div class="px-4 py-2 text-xs text-gray-400 truncate border-b border-gray-100 mb-1 mobile-email-el">…</div>
+    <div class="px-4 py-2 text-sm font-semibold org-name-el text-amber-600">…</div>
+    <div class="border-t border-gray-100 mt-1"></div>
+    <button id="team-btn-mobile" onclick="closeMobileMenu();openTeamModal()" class="w-full text-left px-4 py-2 text-sm hover:bg-gray-50">👥 Manage Team</button>
+    <a href="/superadmin.html" id="sa-link-mobile" class="hidden block px-4 py-2 text-sm text-purple-600 hover:bg-gray-50">⚡ Superadmin Panel</a>
+    <div class="border-t border-gray-100 mt-1"></div>
+    <button onclick="logout()" class="w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-gray-50">→ Sign Out</button>
+  </div>
+</div>
 
 <!-- VIEWS — pb-20 clears the mobile bottom tab bar -->
 <div id="view-entry"  class="view max-w-4xl mx-auto px-3 py-4 pb-24 md:px-5"></div>
@@ -57,11 +90,11 @@ input[type=number] { cursor: text; }
     <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4"/></svg>
     <span class="text-xs font-medium">New Entry</span>
   </button>
-  <button onclick="showView('daily')" data-tab="daily" class="tab-btn flex-1 py-3 flex flex-col items-center gap-0.5 text-slate-400 active:bg-slate-800 transition-colors">
+  <button onclick="showView('daily')" data-tab="daily" class="admin-only-tab tab-btn flex-1 py-3 flex flex-col items-center gap-0.5 text-slate-400 active:bg-slate-800 transition-colors">
     <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
     <span class="text-xs font-medium">Daily</span>
   </button>
-  <button onclick="showView('monthly')" data-tab="monthly" class="tab-btn flex-1 py-3 flex flex-col items-center gap-0.5 text-slate-400 active:bg-slate-800 transition-colors">
+  <button onclick="showView('monthly')" data-tab="monthly" class="admin-only-tab tab-btn flex-1 py-3 flex flex-col items-center gap-0.5 text-slate-400 active:bg-slate-800 transition-colors">
     <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
     <span class="text-xs font-medium">Dashboard</span>
   </button>
@@ -72,10 +105,51 @@ input[type=number] { cursor: text; }
   <div class="md:max-w-3xl md:mx-auto md:my-6 md:mb-12 md:rounded-2xl bg-white shadow-2xl min-h-screen md:min-h-0" id="day-modal-body"></div>
 </div>
 
+<!-- TEAM MANAGEMENT MODAL -->
+<div id="team-modal" class="hidden fixed inset-0 bg-black/60 z-50 overflow-auto no-print" onclick="if(event.target===this)closeTeamModal()">
+  <div class="max-w-lg mx-auto my-8 mx-4 bg-white rounded-2xl shadow-2xl p-6">
+    <div class="flex justify-between items-center mb-5">
+      <h2 class="text-lg font-bold text-gray-800">Manage Team</h2>
+      <button onclick="closeTeamModal()" class="text-gray-400 hover:text-gray-600 text-xl leading-none">✕</button>
+    </div>
+    <!-- Members list -->
+    <div class="mb-5">
+      <h3 class="text-sm font-semibold text-gray-600 mb-2">Current Members</h3>
+      <div id="team-members-list" class="space-y-2 text-sm text-gray-500">Loading…</div>
+    </div>
+    <!-- Invite -->
+    <div class="border-t pt-5">
+      <h3 class="text-sm font-semibold text-gray-600 mb-3">Invite Member</h3>
+      <div id="invite-error" class="hidden mb-2 text-xs text-red-500"></div>
+      <div id="invite-success" class="hidden mb-2 text-xs text-green-600"></div>
+      <div class="flex gap-2">
+        <input id="invite-email" type="email" placeholder="Email address"
+          class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400">
+        <select id="invite-role" class="border border-gray-300 rounded-lg px-2 py-2 text-sm">
+          <option value="editor">Editor</option>
+          <option value="admin">Admin</option>
+        </select>
+        <button onclick="inviteMember()" id="invite-btn"
+          class="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap">
+          Send Invite
+        </button>
+      </div>
+      <p class="text-xs text-gray-400 mt-2">Editor: data entry only. Admin: full access + team management.</p>
+    </div>
+  </div>
+</div>
+
 <script>
+// ─── AUTH STATE ─────────────────────────────────────────────
+let _sb          = null;   // Supabase JS client
+let _jwtToken    = null;   // Current access token
+let currentUser  = null;   // Supabase user object
+let currentRole  = null;   // 'admin' | 'editor'
+let currentOrg   = null;   // { id, name, ... }
+
 // ─── DATA LAYER ─────────────────────────────────────────────
 const CACHE_KEY = 'alawal_cache';
-const API = '/.netlify/functions';
+const API = '/api';
 let appData = { entries: [], drivers: ['Nazir', 'Sheer Haider'] };
 
 // Synchronous read — always returns in-memory state
@@ -95,19 +169,190 @@ function setSyncStatus(s) {
   });
 }
 
-// API helper
+// API helper — always attaches JWT so backend can verify identity + org
 async function apiFetch(path, opts = {}) {
+  const headers = { 'Content-Type': 'application/json' };
+  if (_jwtToken) headers['Authorization'] = `Bearer ${_jwtToken}`;
   const r = await fetch(`${API}/${path}`, {
     method: opts.method || 'GET',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: opts.body ? JSON.stringify(opts.body) : undefined,
   });
   if (!r.ok) throw new Error(`HTTP ${r.status}`);
   return r.json();
 }
 
-// Initial load: cache first → then sync from API
+// ─── AUTH ────────────────────────────────────────────────────
+async function initAuth() {
+  // Fetch public Supabase config from server
+  const cfg = await fetch(`${API}/config`).then(r => r.json()).catch(() => ({}));
+  if (!cfg.supabaseUrl || !cfg.supabaseAnonKey) {
+    document.body.innerHTML = '<div class="min-h-screen flex items-center justify-center bg-slate-900"><div class="text-center text-white"><div class="text-xl font-bold mb-2">Configuration Error</div><div class="text-slate-400 text-sm">SUPABASE_ANON_KEY is not set. Check your .env file.</div></div></div>';
+    return false;
+  }
+
+  _sb = window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
+
+  const { data: { session } } = await _sb.auth.getSession();
+  if (!session) {
+    window.location.href = '/login.html';
+    return false;
+  }
+
+  _jwtToken   = session.access_token;
+  currentUser = session.user;
+
+  // Auto-refresh token
+  _sb.auth.onAuthStateChange((event, s) => {
+    if (event === 'SIGNED_OUT') { window.location.href = '/login.html'; return; }
+    if (s) { _jwtToken = s.access_token; currentUser = s.user; }
+  });
+
+  // Fetch org + role
+  const profile = await apiFetch('org-auth?action=profile').catch(() => null);
+  if (!profile || profile.needsOrg) {
+    window.location.href = '/signup.html';
+    return false;
+  }
+
+  currentOrg  = profile.org;
+  currentRole = profile.role;
+
+  applyRoleUI(profile.isSuperAdmin);
+  return true;
+}
+
+function applyRoleUI(isSuperAdmin) {
+  // Business name
+  document.querySelectorAll('.org-name-el').forEach(el => {
+    el.textContent = currentOrg?.name || 'My Business';
+  });
+
+  // User avatar initials
+  const initials = (currentUser?.email || '?')[0].toUpperCase();
+  document.getElementById('user-avatar').textContent        = initials;
+  document.getElementById('user-avatar-mobile').textContent = initials;
+
+  // User email in dropdown
+  const email = currentUser?.email || '';
+  document.getElementById('user-menu-email').textContent = email;
+  document.querySelectorAll('.mobile-email-el').forEach(el => el.textContent = email);
+
+  // Hide admin-only UI for editors
+  if (currentRole === 'editor') {
+    document.querySelectorAll('.admin-only-tab').forEach(el => el.classList.add('hidden'));
+    document.getElementById('team-btn')?.classList.add('hidden');
+    document.getElementById('team-btn-mobile')?.classList.add('hidden');
+  }
+
+  // Show superadmin link
+  if (isSuperAdmin) {
+    document.getElementById('sa-link')?.classList.remove('hidden');
+    document.getElementById('sa-link-mobile')?.classList.remove('hidden');
+  }
+}
+
+function toggleUserMenu() {
+  const dd = document.getElementById('user-menu-dropdown');
+  dd.classList.toggle('hidden');
+  // Close on outside click
+  setTimeout(() => {
+    if (!dd.classList.contains('hidden')) {
+      document.addEventListener('click', function closeMenu(e) {
+        if (!e.target.closest('#user-menu-dropdown') && !e.target.closest('[onclick="toggleUserMenu()"]')) {
+          dd.classList.add('hidden');
+          document.removeEventListener('click', closeMenu);
+        }
+      });
+    }
+  }, 0);
+}
+
+function toggleMobileUserMenu() {
+  document.getElementById('mobile-user-menu').classList.toggle('hidden');
+}
+function closeMobileMenu() {
+  document.getElementById('mobile-user-menu').classList.add('hidden');
+}
+
+async function logout() {
+  if (_sb) await _sb.auth.signOut();
+  localStorage.removeItem(CACHE_KEY);
+  window.location.href = '/login.html';
+}
+
+// ─── TEAM MANAGEMENT ─────────────────────────────────────────
+async function openTeamModal() {
+  document.getElementById('user-menu-dropdown').classList.add('hidden');
+  document.getElementById('mobile-user-menu').classList.add('hidden');
+  document.getElementById('team-modal').classList.remove('hidden');
+  document.getElementById('invite-error').classList.add('hidden');
+  document.getElementById('invite-success').classList.add('hidden');
+  loadTeamMembers();
+}
+function closeTeamModal() {
+  document.getElementById('team-modal').classList.add('hidden');
+}
+
+async function loadTeamMembers() {
+  const list = document.getElementById('team-members-list');
+  list.textContent = 'Loading…';
+  try {
+    const members = await apiFetch('org-auth?action=members');
+    if (!members.length) { list.innerHTML = '<span class="text-gray-400 text-xs">No members yet.</span>'; return; }
+    list.innerHTML = members.map(m => `
+      <div class="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2">
+        <div>
+          <span class="font-medium text-gray-700">${esc(m.email)}</span>
+          <span class="ml-2 text-xs px-2 py-0.5 rounded-full font-medium ${m.role === 'admin' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'}">${m.role}</span>
+        </div>
+        ${m.user_id !== currentUser?.id ? `<button onclick="removeMember('${m.id}')" class="text-red-400 hover:text-red-600 text-xs ml-2">Remove</button>` : '<span class="text-xs text-gray-300">You</span>'}
+      </div>`).join('');
+  } catch (e) {
+    list.innerHTML = '<span class="text-red-400 text-xs">Failed to load members.</span>';
+  }
+}
+
+async function removeMember(memberId) {
+  if (!confirm('Remove this member?')) return;
+  try {
+    await apiFetch('org-auth?action=remove-member', { method: 'DELETE', body: { memberId } });
+    loadTeamMembers();
+  } catch (e) {
+    alert('Failed to remove member: ' + e.message);
+  }
+}
+
+async function inviteMember() {
+  const email = document.getElementById('invite-email').value.trim();
+  const role  = document.getElementById('invite-role').value;
+  const errEl = document.getElementById('invite-error');
+  const okEl  = document.getElementById('invite-success');
+  const btn   = document.getElementById('invite-btn');
+  errEl.classList.add('hidden');
+  okEl.classList.add('hidden');
+  if (!email) { errEl.textContent = 'Email is required.'; errEl.classList.remove('hidden'); return; }
+  btn.textContent = 'Sending…';
+  btn.disabled = true;
+  try {
+    await apiFetch('org-auth?action=invite', { method: 'POST', body: { email, role } });
+    okEl.textContent = `Invite sent to ${email}`;
+    okEl.classList.remove('hidden');
+    document.getElementById('invite-email').value = '';
+    loadTeamMembers();
+  } catch (e) {
+    errEl.textContent = 'Failed: ' + e.message;
+    errEl.classList.remove('hidden');
+  }
+  btn.textContent = 'Send Invite';
+  btn.disabled = false;
+}
+
+// ─── INITIAL LOAD: auth first → then sync data from API ──────
 async function initData() {
+  const authed = await initAuth();
+  if (!authed) return;
+
   try { const c = JSON.parse(localStorage.getItem(CACHE_KEY)); if (c?.entries) appData = c; } catch {}
   setSyncStatus('syncing');
   try {
@@ -1446,17 +1691,24 @@ function buildMonthly(month) {
 
 // ─── VIEW SWITCHING ─────────────────────────────────────────
 function showView(name) {
+  // Editors cannot access restricted views
+  if (currentRole === 'editor' && (name === 'daily' || name === 'monthly')) name = 'entry';
+
   document.querySelectorAll('.view').forEach(v=>v.classList.add('hidden'));
   document.getElementById('view-'+name).classList.remove('hidden');
-  // Desktop nav
+  // Desktop nav — preserve hidden state for editor-restricted buttons
   document.querySelectorAll('.nav-btn').forEach(b=>{
+    const wasHidden = b.classList.contains('hidden');
     const on = b.dataset.view===name;
     b.className = `nav-btn px-4 py-2 rounded-lg text-sm font-medium transition-colors ${on?'bg-amber-500 text-slate-900':'text-slate-300 hover:bg-slate-700'}`;
+    if (wasHidden) b.classList.add('hidden');
   });
-  // Mobile bottom tabs
+  // Mobile bottom tabs — preserve hidden state too
   document.querySelectorAll('.tab-btn').forEach(b=>{
+    const wasHidden = b.classList.contains('hidden');
     const on = b.dataset.tab===name;
     b.className = `tab-btn flex-1 py-3 flex flex-col items-center gap-0.5 transition-colors ${on?'text-amber-400':'text-slate-400'}`;
+    if (wasHidden) b.classList.add('hidden');
   });
   window.scrollTo(0,0);
   if (name==='entry')   renderForm();
