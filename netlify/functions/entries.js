@@ -8,7 +8,7 @@ const supabase = createClient(
 const HEADERS = {
   'Content-Type': 'application/json',
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Org-Id',
   'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
 };
 
@@ -17,11 +17,11 @@ async function getAuthContext(event) {
   if (!auth.startsWith('Bearer ')) return null;
   const { data: { user }, error } = await supabase.auth.getUser(auth.slice(7));
   if (error || !user) return null;
-  const { data: member } = await supabase
-    .from('org_members')
-    .select('org_id, role')
-    .eq('user_id', user.id)
-    .single();
+  const requestedOrgId = event.headers['x-org-id'];
+  let query = supabase.from('org_members').select('org_id, role').eq('user_id', user.id);
+  if (requestedOrgId) query = query.eq('org_id', requestedOrgId);
+  const { data: members } = await query.order('created_at', { ascending: true }).limit(1);
+  const member = members?.[0] || null;
   if (!member) return null;
   return { userId: user.id, orgId: member.org_id, role: member.role };
 }

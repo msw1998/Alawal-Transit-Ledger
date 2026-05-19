@@ -8,7 +8,7 @@ const supabase = createClient(
 const HEADERS = {
   'Content-Type': 'application/json',
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Org-Id',
   'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
 };
 
@@ -27,11 +27,11 @@ async function getUser(event) {
 async function getCtx(event) {
   const user = await getUser(event);
   if (!user) return null;
-  const { data: member } = await supabase
-    .from('org_members')
-    .select('org_id, role')
-    .eq('user_id', user.id)
-    .single();
+  const requestedOrgId = event.headers['x-org-id'];
+  let query = supabase.from('org_members').select('org_id, role').eq('user_id', user.id);
+  if (requestedOrgId) query = query.eq('org_id', requestedOrgId);
+  const { data: members } = await query.order('created_at', { ascending: true }).limit(1);
+  const member = members?.[0] || null;
   return { userId: user.id, email: user.email, orgId: member?.org_id || null, role: member?.role || null };
 }
 
@@ -48,11 +48,23 @@ exports.handler = async (event) => {
       if (!ctx) return err(401, 'Unauthorized');
       if (!ctx.orgId) return ok({ needsOrg: true });
 
-      const [{ data: org }, { data: sa }] = await Promise.all([
+      // Fetch all orgs this user belongs to (for org switcher)
+      const { data: memberships } = await supabase
+        .from('org_members').select('org_id, role').eq('user_id', ctx.userId);
+      const orgIds = (memberships || []).map(m => m.org_id);
+
+      const [{ data: org }, { data: allOrgRows }, { data: sa }] = await Promise.all([
         supabase.from('organizations').select('*').eq('id', ctx.orgId).single(),
+        supabase.from('organizations').select('id, name').in('id', orgIds),
         supabase.from('superadmins').select('user_id').eq('user_id', ctx.userId).single(),
       ]);
-      return ok({ org, role: ctx.role, isSuperAdmin: !!sa });
+
+      const allOrgs = (allOrgRows || []).map(o => ({
+        id: o.id, name: o.name,
+        role: (memberships || []).find(m => m.org_id === o.id)?.role,
+      }));
+
+      return ok({ org, role: ctx.role, isSuperAdmin: !!sa, allOrgs });
     }
 
     // ── POST create-org (first-time setup after signup) ─────
@@ -119,13 +131,15 @@ exports.handler = async (event) => {
       const { data: existingMember } = await supabase
         .from('org_members').select('id').eq('user_id', invited.user.id).eq('org_id', ctx.orgId).single();
       if (!existingMember) {
-        await supabase.from('org_members').insert({
+        const { error: memErr } = await supabase.from('org_members').insert({
           org_id: ctx.orgId, user_id: invited.user.id, role, invited_by: ctx.userId,
         });
+        if (memErr) throw memErr;
       } else {
-        await supabase.from('org_members').update({ role }).eq('id', existingMember.id);
+        const { error: updErr } = await supabase.from('org_members').update({ role }).eq('id', existingMember.id);
+        if (updErr) throw updErr;
       }
-      return ok({ ok: true });
+      return ok({ ok: true, userId: invited.user.id });
     }
 
     // ── DELETE remove-member (admin only) ───────────────────

@@ -248,7 +248,7 @@ async function handleInviteStep(e) {
 
   const password = document.getElementById('invite-password').value;
 
-  const { error } = await _sb.auth.updateUser({ password });
+  const { data: updateData, error } = await _sb.auth.updateUser({ password });
   if (error) {
     document.getElementById('error-box-invite').textContent = error.message;
     document.getElementById('error-box-invite').classList.remove('hidden');
@@ -256,6 +256,22 @@ async function handleInviteStep(e) {
     btn.disabled = false;
     return;
   }
+
+  // Refresh session after password update so the new token is in place
+  const { data: { session: fresh } } = await _sb.auth.getSession();
+  if (fresh) _session = fresh;
+
+  // Confirm org membership exists before entering the app
+  const profile = await apiFetch('org-auth?action=profile').catch(() => null);
+  if (!profile || profile.needsOrg) {
+    document.getElementById('error-box-invite').textContent =
+      'Your invitation could not be confirmed. Please contact your administrator.';
+    document.getElementById('error-box-invite').classList.remove('hidden');
+    btn.textContent = 'Activate Account →';
+    btn.disabled = false;
+    return;
+  }
+
   window.location.href = '/index.html';
 }
 
