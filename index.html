@@ -673,17 +673,28 @@ function autoFillPrevCash() {
   const date = (document.getElementById('f-date')||{}).value;
   // Only auto-fill for new entries; edits already have their value
   if (!drv || !date || FS.id) return;
+
+  // Carry-over from most recent previous entry for this driver
   const prev = appData.entries
     .filter(e => e.driver?.trim() === drv && e.date < date)
     .sort((a,b) => b.date.localeCompare(a.date))[0];
-  if (prev) {
-    const safe = { trips:[], misc:[], coexp:[], ...prev };
-    const rem  = calc(safe).drvRem;
-    const el   = document.getElementById('f-prev');
-    if (el) el.value = rem || 0;
-    FS.prevCash = rem || 0;
-    updateSummary();
-  }
+  const prevDate = prev?.date || '0000-00-00'; // entries before this date are already baked into drvRem
+  let total = prev ? (calc({ trips:[], misc:[], coexp:[], ...prev }).drvRem || 0) : 0;
+
+  // Add transfers to this driver that occurred AFTER the last entry date and UP TO the current date.
+  // Example: transfer on Apr 29 → Driver 2's first entry is May 1 → picks up the Apr 29 transfer.
+  // On May 2: last entry is May 1 (drvRem already includes the 25k), so Apr 29 is not double-counted.
+  const incomingTotal = appData.entries
+    .filter(e => e.date > prevDate && e.date <= date && e.driver?.trim() !== drv)
+    .flatMap(e => (e.driverTransfers||[]).filter(tr => tr.toDriver?.trim() === drv && +tr.amt > 0))
+    .reduce((s, tr) => s + (+tr.amt), 0);
+
+  total += incomingTotal;
+
+  const el = document.getElementById('f-prev');
+  if (el) el.value = total || 0;
+  FS.prevCash = total || 0;
+  updateSummary();
 }
 
 function toggleExpMode(ti, ei) {
@@ -1162,7 +1173,7 @@ function buildDailyCards(entries) {
       </div>
       ${(() => {
         const out = (e.driverTransfers||[]).filter(x=>+x.amt>0);
-        const inc = data.entries.filter(e2=>e2.date===e.date&&e2.id!==e.id).flatMap(e2=>(e2.driverTransfers||[]).filter(tr=>tr.toDriver===e.driver&&+tr.amt>0).map(tr=>({from:e2.driver,amt:+tr.amt})));
+        const inc = appData.entries.filter(e2=>e2.date===e.date&&e2.id!==e.id).flatMap(e2=>(e2.driverTransfers||[]).filter(tr=>tr.toDriver===e.driver&&+tr.amt>0).map(tr=>({from:e2.driver,amt:+tr.amt})));
         if (!out.length && !inc.length) return '';
         return `<div class="mt-2 pt-2 border-t border-dashed border-indigo-100 flex flex-wrap gap-1.5">
           ${out.map(x=>`<span class="bg-indigo-50 text-indigo-700 text-xs px-2 py-0.5 rounded-full">→ ${esc(x.toDriver)}: ${Rs(x.amt)}</span>`).join('')}

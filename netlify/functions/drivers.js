@@ -46,11 +46,12 @@ exports.handler = async (event) => {
     if (event.httpMethod === 'POST') {
       const { name } = JSON.parse(event.body);
       if (!name?.trim()) return { statusCode: 400, headers: HEADERS, body: 'Name required' };
-      const { error } = await supabase.from('drivers').upsert(
-        { name: name.trim(), org_id: ctx.orgId },
-        { onConflict: 'name,org_id', ignoreDuplicates: true }
+      // Insert — ignore if this driver already exists for this org
+      const { error } = await supabase.from('drivers').insert(
+        { name: name.trim(), org_id: ctx.orgId }
       );
-      if (error) throw error;
+      // 23505 = unique_violation (already exists) — safe to ignore
+      if (error && error.code !== '23505') throw error;
       return { statusCode: 200, headers: HEADERS, body: JSON.stringify({ ok: true }) };
     }
 
