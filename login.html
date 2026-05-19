@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Sign In — AlAwal Ledger</title>
+<title>Sign In — routeBook</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -13,7 +13,7 @@
   <!-- Logo -->
   <div class="text-center mb-8">
     <img src="AlawalTransit Logo.png" alt="AlAwal Transit" class="w-16 h-16 rounded-full object-cover mx-auto mb-4 shadow-lg" style="width:4rem;height:4rem;border-radius:9999px;object-fit:cover;display:block;margin-left:auto;margin-right:auto">
-    <h1 class="text-2xl font-bold text-white">AlAwal Ledger</h1>
+    <h1 class="text-2xl font-bold text-white">routeBook</h1>
     <p class="text-slate-400 text-sm mt-1">Sign in to your account</p>
   </div>
 
@@ -59,6 +59,21 @@
       </div>
     </form>
 
+    <!-- Reset password form (shown after clicking email link) -->
+    <form id="reset-form" onsubmit="handleReset(event)" class="hidden space-y-4">
+      <p class="text-sm text-gray-600 font-medium">Set your new password</p>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">New Password</label>
+        <input id="new-password" type="password" required minlength="6"
+          class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+          placeholder="At least 6 characters">
+      </div>
+      <button type="submit" id="reset-btn"
+        class="w-full bg-amber-500 hover:bg-amber-600 text-white font-semibold py-2.5 rounded-lg transition-colors text-sm">
+        Update Password
+      </button>
+    </form>
+
     <p class="text-center text-sm text-gray-500 mt-5">
       Don't have an account?
       <a href="/signup.html" class="text-amber-600 font-medium hover:underline">Create one</a>
@@ -78,9 +93,22 @@ async function init() {
   }
   _sb = window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
 
-  // Already logged in → go to app
+  // Listen for PASSWORD_RECOVERY before checking existing session
+  _sb.auth.onAuthStateChange((event, session) => {
+    if (event === 'PASSWORD_RECOVERY') {
+      showResetForm();
+    }
+  });
+
+  // Already logged in → go to app (but not if this is a recovery session)
   const { data: { session } } = await _sb.auth.getSession();
-  if (session) window.location.href = '/index.html';
+  if (session && session.user?.recovery_sent_at === undefined) {
+    // Check URL hash — if type=recovery is present, don't redirect
+    const hash = window.location.hash;
+    if (!hash.includes('type=recovery')) {
+      window.location.href = '/index.html';
+    }
+  }
 }
 
 async function handleLogin(e) {
@@ -114,6 +142,31 @@ async function handleForgot(e) {
   if (error) { showError(error.message); return; }
   showInfo('Reset link sent! Check your inbox.');
   showLogin();
+}
+
+function showResetForm() {
+  clearMessages();
+  document.getElementById('login-form').classList.add('hidden');
+  document.getElementById('forgot-form').classList.add('hidden');
+  document.getElementById('reset-form').classList.remove('hidden');
+}
+
+async function handleReset(e) {
+  e.preventDefault();
+  clearMessages();
+  const btn = document.getElementById('reset-btn');
+  btn.textContent = 'Updating…';
+  btn.disabled = true;
+  const newPassword = document.getElementById('new-password').value;
+  const { error } = await _sb.auth.updateUser({ password: newPassword });
+  if (error) {
+    showError(error.message);
+    btn.textContent = 'Update Password';
+    btn.disabled = false;
+    return;
+  }
+  showInfo('Password updated! Redirecting…');
+  setTimeout(() => { window.location.href = '/index.html'; }, 1500);
 }
 
 function showForgot() {

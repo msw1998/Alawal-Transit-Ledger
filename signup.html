@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Create Account — AlAwal Ledger</title>
+<title>Create Account — routeBook</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -13,7 +13,7 @@
   <!-- Logo -->
   <div class="text-center mb-8">
     <img src="AlawalTransit Logo.png" alt="AlAwal Transit" class="w-16 h-16 rounded-full object-cover mx-auto mb-4 shadow-lg" style="width:4rem;height:4rem;border-radius:9999px;object-fit:cover;display:block;margin-left:auto;margin-right:auto">
-    <h1 class="text-2xl font-bold text-white">AlAwal Ledger</h1>
+    <h1 class="text-2xl font-bold text-white">routeBook</h1>
     <p class="text-slate-400 text-sm mt-1">Create your business account</p>
   </div>
 
@@ -60,6 +60,32 @@
     </p>
   </div>
 
+  <!-- Invite acceptance: just set a password -->
+  <div id="step-invite" class="hidden bg-white rounded-2xl shadow-2xl p-8">
+    <div class="flex items-center gap-3 mb-6">
+      <div class="w-8 h-8 bg-amber-100 rounded-full flex items-center justify-center text-amber-600 text-lg">✉</div>
+      <div>
+        <div class="font-semibold text-gray-800 text-sm">You've been invited!</div>
+        <div class="text-xs text-gray-400">Set a password to activate your account</div>
+      </div>
+    </div>
+
+    <div id="error-box-invite" class="hidden mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm"></div>
+
+    <form id="invite-form" onsubmit="handleInviteStep(event)" class="space-y-4">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Set Your Password</label>
+        <input id="invite-password" type="password" required minlength="6"
+          class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+          placeholder="At least 6 characters">
+      </div>
+      <button type="submit" id="invite-btn"
+        class="w-full bg-amber-500 hover:bg-amber-600 text-white font-semibold py-2.5 rounded-lg transition-colors text-sm">
+        Activate Account →
+      </button>
+    </form>
+  </div>
+
   <!-- Step 2: Business Setup -->
   <div id="step-2" class="hidden bg-white rounded-2xl shadow-2xl p-8">
     <div class="flex items-center gap-2 mb-6">
@@ -94,6 +120,9 @@ let _sb   = null;
 let _session = null;
 let _fullName = '';
 
+// Detect invite link before SDK initialises (SDK consumes the hash)
+const _isInvite = window.location.hash.includes('type=invite');
+
 async function init() {
   const cfg = await fetch(`${API}/config`).then(r => r.json()).catch(() => ({}));
   if (!cfg.supabaseUrl || !cfg.supabaseAnonKey) {
@@ -102,24 +131,14 @@ async function init() {
   }
   _sb = window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
 
-  // If user comes here already signed in (e.g., after invite link), skip to step 2
-  const { data: { session } } = await _sb.auth.getSession();
-  if (session) {
-    _session = session;
-    // Check if they already have an org
-    const profile = await apiFetch('org-auth?action=profile').catch(() => null);
-    if (profile && !profile.needsOrg) {
-      window.location.href = '/index.html';
-      return;
-    }
-    // Jump straight to business setup
-    showStep2();
-  }
-
-  // Check if redirected from invite link (hash contains access_token)
+  // Handle invite link OR normal already-signed-in case
   _sb.auth.onAuthStateChange(async (event, session) => {
     if (event === 'SIGNED_IN' && session && !_session) {
       _session = session;
+      if (_isInvite) {
+        showInviteStep();
+        return;
+      }
       const profile = await apiFetch('org-auth?action=profile').catch(() => null);
       if (profile && !profile.needsOrg) {
         window.location.href = '/index.html';
@@ -128,6 +147,18 @@ async function init() {
       }
     }
   });
+
+  // If user arrives already signed in (not from an invite hash)
+  const { data: { session } } = await _sb.auth.getSession();
+  if (session && !_isInvite) {
+    _session = session;
+    const profile = await apiFetch('org-auth?action=profile').catch(() => null);
+    if (profile && !profile.needsOrg) {
+      window.location.href = '/index.html';
+      return;
+    }
+    showStep2();
+  }
 }
 
 async function apiFetch(path, opts = {}) {
@@ -200,6 +231,32 @@ async function handleOrgStep(e) {
 function showStep2() {
   document.getElementById('step-1').classList.add('hidden');
   document.getElementById('step-2').classList.remove('hidden');
+}
+
+function showInviteStep() {
+  document.getElementById('step-1').classList.add('hidden');
+  document.getElementById('step-2').classList.add('hidden');
+  document.getElementById('step-invite').classList.remove('hidden');
+}
+
+async function handleInviteStep(e) {
+  e.preventDefault();
+  const btn = document.getElementById('invite-btn');
+  btn.textContent = 'Activating…';
+  btn.disabled = true;
+  document.getElementById('error-box-invite').classList.add('hidden');
+
+  const password = document.getElementById('invite-password').value;
+
+  const { error } = await _sb.auth.updateUser({ password });
+  if (error) {
+    document.getElementById('error-box-invite').textContent = error.message;
+    document.getElementById('error-box-invite').classList.remove('hidden');
+    btn.textContent = 'Activate Account →';
+    btn.disabled = false;
+    return;
+  }
+  window.location.href = '/index.html';
 }
 
 init();

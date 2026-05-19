@@ -111,7 +111,7 @@ exports.handler = async (event) => {
       // Invite (or re-invite) via Supabase Auth admin API
       const { data: invited, error: invErr } = await supabase.auth.admin.inviteUserByEmail(
         email.trim(),
-        { redirectTo: `${siteUrl}/login.html` }
+        { redirectTo: `${siteUrl}/signup.html` }
       );
       if (invErr) throw invErr;
 
