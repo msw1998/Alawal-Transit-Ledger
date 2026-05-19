@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>AlAwal Transit — Daily Ledger</title>
 <link rel="icon" type="image/png" href="AlawalTransit Logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Nastaliq+Urdu:wght@400;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
@@ -22,6 +24,12 @@ input[type=number] { cursor: text; }
   .no-print { display: none !important; }
   body { background: white; }
 }
+/* Urdu / RTL mode */
+body.lang-ur, body.lang-ur input, body.lang-ur select, body.lang-ur textarea, body.lang-ur button {
+  font-family: 'Noto Nastaliq Urdu', serif !important;
+  font-size: 15px !important;
+}
+body.lang-ur .ltr { direction: ltr; unicode-bidi: embed; }
 </style>
 </head>
 <body class="bg-gray-100 text-gray-800 min-h-screen">
@@ -32,18 +40,20 @@ input[type=number] { cursor: text; }
     <img src="AlawalTransit Logo.png" alt="AlAwal Transit" class="h-9 w-9 rounded-full object-cover shrink-0">
     <div>
       <div class="font-bold text-base leading-tight org-name-el">Loading…</div>
-      <div class="text-xs text-slate-400 leading-tight hidden sm:block">Daily Ledger System</div>
+      <div class="text-xs text-slate-400 leading-tight hidden sm:block" data-i18n="nav.subtitle">Daily Ledger System</div>
     </div>
   </div>
   <!-- Desktop nav tabs -->
   <div class="hidden md:flex gap-1 items-center">
-    <button onclick="FS=blankFS();showView('entry')" data-view="entry" class="nav-btn px-4 py-2 rounded-lg text-sm font-medium text-slate-300 hover:bg-slate-700 transition-colors">+ New Entry</button>
-    <button onclick="showView('daily')" data-view="daily" class="nav-btn admin-only-tab px-4 py-2 rounded-lg text-sm font-medium text-slate-300 hover:bg-slate-700 transition-colors">Daily View</button>
-    <button onclick="showView('monthly')" data-view="monthly" class="nav-btn admin-only-tab px-4 py-2 rounded-lg text-sm font-medium text-slate-300 hover:bg-slate-700 transition-colors">Dashboard</button>
+    <button onclick="FS=blankFS();showView('entry')" data-view="entry" class="nav-btn px-4 py-2 rounded-lg text-sm font-medium text-slate-300 hover:bg-slate-700 transition-colors" data-i18n="nav.new_entry">+ New Entry</button>
+    <button onclick="showView('daily')" data-view="daily" class="nav-btn admin-only-tab px-4 py-2 rounded-lg text-sm font-medium text-slate-300 hover:bg-slate-700 transition-colors" data-i18n="nav.daily">Daily View</button>
+    <button onclick="showView('monthly')" data-view="monthly" class="nav-btn admin-only-tab px-4 py-2 rounded-lg text-sm font-medium text-slate-300 hover:bg-slate-700 transition-colors" data-i18n="nav.dashboard">Dashboard</button>
     <div class="w-px h-5 bg-slate-600 mx-1"></div>
     <span class="sync-status text-xs font-medium text-slate-400 min-w-16 text-right"></span>
     <div class="w-px h-5 bg-slate-600 mx-1"></div>
-    <button onclick="exportData()" class="admin-only-tab px-3 py-2 rounded-lg text-sm font-medium text-amber-400 hover:bg-slate-700 transition-colors" title="Export to Excel">↓ Export Excel</button>
+    <button onclick="exportData()" class="admin-only-tab px-3 py-2 rounded-lg text-sm font-medium text-amber-400 hover:bg-slate-700 transition-colors" title="Export to Excel" data-i18n="nav.export">↓ Export Excel</button>
+    <div class="w-px h-5 bg-slate-600 mx-1"></div>
+    <button onclick="toggleLang()" id="lang-toggle" class="px-2.5 py-1 rounded-lg text-xs font-bold border border-slate-600 text-slate-200 hover:bg-slate-700 transition-colors" data-i18n="lang.toggle">اردو</button>
     <div class="w-px h-5 bg-slate-600 mx-1"></div>
     <!-- User menu -->
     <div class="relative">
@@ -53,10 +63,11 @@ input[type=number] { cursor: text; }
       </button>
       <div id="user-menu-dropdown" class="hidden absolute right-0 top-11 bg-white rounded-xl shadow-2xl border border-gray-100 py-1.5 w-52 z-50 text-gray-800">
         <div class="px-4 py-2 text-xs text-gray-400 truncate border-b border-gray-100 mb-1" id="user-menu-email">…</div>
-        <button id="team-btn" onclick="openTeamModal()" class="w-full text-left px-4 py-2 text-sm hover:bg-gray-50">👥 Manage Team</button>
-        <a href="/superadmin.html" id="sa-link" class="hidden block px-4 py-2 text-sm text-purple-600 hover:bg-gray-50">⚡ Superadmin Panel</a>
+        <button id="team-btn" onclick="openTeamModal()" class="w-full text-left px-4 py-2 text-sm hover:bg-gray-50" data-i18n="nav.manage_team">👥 Manage Team</button>
+        <a href="/superadmin.html" id="sa-link" class="hidden block px-4 py-2 text-sm text-purple-600 hover:bg-gray-50" data-i18n="nav.superadmin">⚡ Superadmin Panel</a>
         <div class="border-t border-gray-100 mt-1"></div>
-        <button onclick="logout()" class="w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-gray-50">→ Sign Out</button>
+        <button onclick="toggleLang()" class="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 text-blue-600"><span data-i18n="lang.toggle">اردو</span></button>
+        <button onclick="logout()" class="w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-gray-50" data-i18n="nav.sign_out">→ Sign Out</button>
       </div>
     </div>
   </div>
@@ -72,10 +83,11 @@ input[type=number] { cursor: text; }
     <div class="px-4 py-2 text-xs text-gray-400 truncate border-b border-gray-100 mb-1 mobile-email-el">…</div>
     <div class="px-4 py-2 text-sm font-semibold org-name-el text-amber-600">…</div>
     <div class="border-t border-gray-100 mt-1"></div>
-    <button id="team-btn-mobile" onclick="closeMobileMenu();openTeamModal()" class="w-full text-left px-4 py-2 text-sm hover:bg-gray-50">👥 Manage Team</button>
-    <a href="/superadmin.html" id="sa-link-mobile" class="hidden block px-4 py-2 text-sm text-purple-600 hover:bg-gray-50">⚡ Superadmin Panel</a>
+    <button id="team-btn-mobile" onclick="closeMobileMenu();openTeamModal()" class="w-full text-left px-4 py-2 text-sm hover:bg-gray-50" data-i18n="nav.manage_team">👥 Manage Team</button>
+    <a href="/superadmin.html" id="sa-link-mobile" class="hidden block px-4 py-2 text-sm text-purple-600 hover:bg-gray-50" data-i18n="nav.superadmin">⚡ Superadmin Panel</a>
     <div class="border-t border-gray-100 mt-1"></div>
-    <button onclick="logout()" class="w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-gray-50">→ Sign Out</button>
+    <button onclick="closeMobileMenu();toggleLang()" class="w-full text-left px-4 py-2 text-sm text-blue-600 hover:bg-gray-50"><span data-i18n="lang.toggle">اردو</span></button>
+    <button onclick="logout()" class="w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-gray-50" data-i18n="nav.sign_out">→ Sign Out</button>
   </div>
 </div>
 
@@ -88,15 +100,15 @@ input[type=number] { cursor: text; }
 <div class="md:hidden no-print fixed bottom-0 left-0 right-0 bg-slate-900 border-t border-slate-700 flex z-40 safe-area-bottom">
   <button onclick="FS=blankFS();showView('entry')" data-tab="entry" class="tab-btn flex-1 py-3 flex flex-col items-center gap-0.5 text-slate-400 active:bg-slate-800 transition-colors">
     <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4"/></svg>
-    <span class="text-xs font-medium">New Entry</span>
+    <span class="text-xs font-medium" data-i18n="tab.new_entry">New Entry</span>
   </button>
   <button onclick="showView('daily')" data-tab="daily" class="admin-only-tab tab-btn flex-1 py-3 flex flex-col items-center gap-0.5 text-slate-400 active:bg-slate-800 transition-colors">
     <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
-    <span class="text-xs font-medium">Daily</span>
+    <span class="text-xs font-medium" data-i18n="tab.daily">Daily</span>
   </button>
   <button onclick="showView('monthly')" data-tab="monthly" class="admin-only-tab tab-btn flex-1 py-3 flex flex-col items-center gap-0.5 text-slate-400 active:bg-slate-800 transition-colors">
     <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
-    <span class="text-xs font-medium">Dashboard</span>
+    <span class="text-xs font-medium" data-i18n="tab.dashboard">Dashboard</span>
   </button>
 </div>
 
@@ -146,10 +158,11 @@ let _jwtToken    = null;   // Current access token
 let currentUser  = null;   // Supabase user object
 let currentRole  = null;   // 'admin' | 'editor'
 let currentOrg   = null;   // { id, name, ... }
+let currentLang  = 'en';  // 'en' | 'ur'
 
 // ─── DATA LAYER ─────────────────────────────────────────────
 const CACHE_KEY = 'alawal_cache';
-const API = '/api';
+const API = '/.netlify/functions';
 let appData = { entries: [], drivers: ['Nazir', 'Sheer Haider'] };
 
 // Synchronous read — always returns in-memory state
@@ -160,8 +173,10 @@ function cache() { try { localStorage.setItem(CACHE_KEY, JSON.stringify(appData)
 
 // Sync status indicator
 function setSyncStatus(s) {
-  const map = { syncing:['⟳ Syncing…','text-slate-400'], ok:['✓ Saved','text-green-400'], offline:['◉ Offline','text-amber-400'], error:['✗ Sync error','text-red-400'] };
-  const [text, cls] = map[s] || map.ok;
+  const clsMap = { syncing:'text-slate-400', ok:'text-green-400', offline:'text-amber-400', error:'text-red-400' };
+  const keyMap = { syncing:'sync.syncing', ok:'sync.ok', offline:'sync.offline', error:'sync.error' };
+  const text = t(keyMap[s] || 'sync.ok');
+  const cls  = clsMap[s] || clsMap.ok;
   document.querySelectorAll('.sync-status').forEach(el => {
     el.textContent = text;
     el.className = `sync-status text-xs font-medium transition-all min-w-16 text-right ${cls}`;
@@ -314,7 +329,7 @@ async function loadTeamMembers() {
 }
 
 async function removeMember(memberId) {
-  if (!confirm('Remove this member?')) return;
+  if (!confirm(t('confirm.remove_member'))) return;
   try {
     await apiFetch('org-auth?action=remove-member', { method: 'DELETE', body: { memberId } });
     loadTeamMembers();
@@ -352,6 +367,8 @@ async function inviteMember() {
 async function initData() {
   const authed = await initAuth();
   if (!authed) return;
+
+  initLang();
 
   try { const c = JSON.parse(localStorage.getItem(CACHE_KEY)); if (c?.entries) appData = c; } catch {}
   setSyncStatus('syncing');
@@ -478,21 +495,21 @@ function updateSummary() {
   el('s-drvin').textContent = Rs(c.drvIn);
   el('s-drvrem').textContent= Rs(c.drvRem);
   el('s-drvrem').className  = `text-xl font-bold mt-1 ${c.drvRem>=0?'text-amber-700':'text-red-600'}`;
-  FS.trips.forEach((t,ti)=>{
-    const tot = t.exp.reduce((s,x)=>s+(+x.amt||0),0);
+  FS.trips.forEach((trip,ti)=>{
+    const tot = trip.exp.reduce((s,x)=>s+(+x.amt||0),0);
     const e2  = document.getElementById(`t-tot-${ti}`);
-    if (e2) e2.textContent = `Trip Expenses: ${Rs(tot)}`;
+    if (e2) e2.textContent = `${t('misc.trip_exp')}: ${Rs(tot)}`;
     const cr = document.getElementById(`t-credit-${ti}`);
-    if (cr) cr.textContent = `Rs. ${Math.max(0,(t.income||0)-(t.cashAmt||0)).toLocaleString('en-PK')}`;
+    if (cr) cr.textContent = `Rs. ${Math.max(0,(trip.income||0)-(trip.cashAmt||0)).toLocaleString('en-PK')}`;
   });
   const miscTot = el('s-misc-tot');
   if (miscTot) { const v=FS.misc.reduce((s,x)=>s+(+x.amt||0),0); miscTot.textContent=`Total: ${Rs(v)}`; miscTot.classList.toggle('hidden',!FS.misc.length); }
   const coTot = el('s-coexp-tot');
   if (coTot) { const v=(FS.coexp||[]).reduce((s,x)=>s+(+x.amt||0),0); coTot.textContent=`Total: ${Rs(v)}`; coTot.classList.toggle('hidden',!(FS.coexp||[]).length); }
   const cpTot = el('s-cp-tot');
-  if (cpTot) { const v=(FS.clientPayments||[]).reduce((s,p)=>s+(+p.amount||0),0); cpTot.textContent=`Total Received: ${Rs(v)}`; cpTot.classList.toggle('hidden',!(FS.clientPayments||[]).length); }
+  if (cpTot) { const v=(FS.clientPayments||[]).reduce((s,p)=>s+(+p.amount||0),0); cpTot.textContent=`${t('cp.total_recv')}: ${Rs(v)}`; cpTot.classList.toggle('hidden',!(FS.clientPayments||[]).length); }
   const vpTot = el('s-vp-tot');
-  if (vpTot) { const v=(FS.vendorPayments||[]).reduce((s,p)=>s+(+p.amount||0),0); vpTot.textContent=`Total Paid: ${Rs(v)}`; vpTot.classList.toggle('hidden',!(FS.vendorPayments||[]).length); }
+  if (vpTot) { const v=(FS.vendorPayments||[]).reduce((s,p)=>s+(+p.amount||0),0); vpTot.textContent=`${t('vp.total_paid')}: ${Rs(v)}`; vpTot.classList.toggle('hidden',!(FS.vendorPayments||[]).length); }
 }
 
 function autoFillPrevCash() {
@@ -529,7 +546,7 @@ function togglePartial(ti) {
 
 async function saveEntry() {
   readDOM();
-  if (!FS.date||!FS.driver.trim()) { alert('Please enter date and driver name.'); return; }
+  if (!FS.date||!FS.driver.trim()) { alert(t('alert.date_driver')); return; }
   if (!FS.id) FS.id = uid();
   const idx = appData.entries.findIndex(e=>e.id===FS.id);
   const saved = JSON.parse(JSON.stringify(FS));
@@ -542,12 +559,12 @@ async function saveEntry() {
     if (FS.driver) await apiFetch('drivers', { method:'POST', body:{ name:FS.driver } });
     setSyncStatus('ok');
   } catch(e) { setSyncStatus('error'); console.warn('Save failed:', e); }
-  alert('Entry saved!');
+  alert(t('alert.entry_saved'));
   FS = blankFS();
   renderForm();
 }
 
-function clearForm() { if(confirm('Clear the form?')) { FS=blankFS(); renderForm(); } }
+function clearForm() { if(confirm(t('confirm.clear'))) { FS=blankFS(); renderForm(); } }
 
 function getClients() {
   const s = new Set();
@@ -625,9 +642,9 @@ function renderForm() {
   const clientOpts  = getClients().map(c=>`<option value="${esc(c)}">`).join('');
   const locationOpts= getLocations().map(l=>`<option value="${esc(l)}">`).join('');
 
-  const tripsHTML = FS.trips.map((t,ti)=>{
-    const tot = t.exp.reduce((s,x)=>s+(+x.amt||0),0);
-    const expRows = t.exp.map((x,ei)=>`
+  const tripsHTML = FS.trips.map((trip,ti)=>{
+    const tot = trip.exp.reduce((s,x)=>s+(+x.amt||0),0);
+    const expRows = trip.exp.map((x,ei)=>`
       <div class="rounded-lg border bg-white px-2 py-1.5 space-y-1.5">
         <div class="flex gap-1.5 items-center">
           <input id="t-ed-${ti}-${ei}" type="text" value="${esc(x.desc)}" placeholder="Description"
@@ -637,8 +654,8 @@ function renderForm() {
             onkeydown="if(event.key==='Enter'){event.preventDefault();addTE(${ti});}">
           <select id="t-em-${ti}-${ei}" class="border rounded-lg px-1.5 py-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white shrink-0"
             onchange="toggleExpMode(${ti},${ei})">
-            <option value="cash"   ${(x.mode||'cash')==='cash'  ?'selected':''}>Cash</option>
-            <option value="credit" ${x.mode==='credit'?'selected':''}>Credit</option>
+            <option value="cash"   ${(x.mode||'cash')==='cash'  ?'selected':''}>${t('exp.cash_opt')}</option>
+            <option value="credit" ${x.mode==='credit'?'selected':''}>${t('exp.credit_opt')}</option>
           </select>
           <button onclick="remTE(${ti},${ei})" class="w-9 h-9 flex items-center justify-center text-red-400 hover:text-red-600 shrink-0 rounded-lg hover:bg-red-50 text-lg">✕</button>
         </div>
@@ -651,51 +668,51 @@ function renderForm() {
     return `
     <div class="bg-white border border-blue-100 rounded-xl p-4 mb-3 shadow-sm">
       <div class="flex justify-between items-center mb-3">
-        <span class="font-semibold text-blue-700">Trip ${ti+1}</span>
-        <button onclick="remTrip(${ti})" class="text-red-500 text-sm px-2 py-1 rounded hover:bg-red-50">Remove</button>
+        <span class="font-semibold text-blue-700">${t('trip.label')} ${ti+1}</span>
+        <button onclick="remTrip(${ti})" class="text-red-500 text-sm px-2 py-1 rounded hover:bg-red-50">${t('btn.remove')}</button>
       </div>
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
         <div>
-          <label class="text-xs font-medium text-gray-500">Destination / Location</label>
-          <input id="t-dest-${ti}" type="text" value="${esc(t.dest)}" placeholder="e.g. Sohrab Goth Stock" list="loc-list" class="${INP}" oninput="updateSummary()">
+          <label class="text-xs font-medium text-gray-500">${t('field.destination')}</label>
+          <input id="t-dest-${ti}" type="text" value="${esc(trip.dest)}" placeholder="e.g. Sohrab Goth Stock" list="loc-list" class="${INP}" oninput="updateSummary()">
         </div>
         <div>
-          <label class="text-xs font-medium text-gray-500">Customer / Party</label>
-          <input id="t-cust-${ti}" type="text" value="${esc(t.cust)}" placeholder="e.g. Abdul Rahim" list="cust-list" class="${INP}" oninput="updateSummary()">
+          <label class="text-xs font-medium text-gray-500">${t('field.customer')}</label>
+          <input id="t-cust-${ti}" type="text" value="${esc(trip.cust)}" placeholder="e.g. Abdul Rahim" list="cust-list" class="${INP}" oninput="updateSummary()">
         </div>
       </div>
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
         <div>
-          <label class="text-xs font-medium text-gray-500">Income (Rs.)</label>
-          <input id="t-inc-${ti}" type="number" inputmode="numeric" value="${t.income||''}" placeholder="0" class="${INP}" oninput="updateSummary()">
+          <label class="text-xs font-medium text-gray-500">${t('field.income')}</label>
+          <input id="t-inc-${ti}" type="number" inputmode="numeric" value="${trip.income||''}" placeholder="0" class="${INP}" oninput="updateSummary()">
         </div>
         <div>
-          <label class="text-xs font-medium text-gray-500">Payment Mode</label>
+          <label class="text-xs font-medium text-gray-500">${t('field.payment_mode')}</label>
           <div class="flex flex-wrap gap-3 mt-2.5">
             <label class="flex items-center gap-2 cursor-pointer">
-              <input type="radio" name="t-pm-${ti}" value="cash" ${t.pm==='cash'?'checked':''} onchange="togglePartial(${ti})" class="w-4 h-4 accent-green-600"> <span class="text-sm">Cash (نقد)</span>
+              <input type="radio" name="t-pm-${ti}" value="cash" ${trip.pm==='cash'?'checked':''} onchange="togglePartial(${ti})" class="w-4 h-4 accent-green-600"> <span class="text-sm">${t('pm.cash')}</span>
             </label>
             <label class="flex items-center gap-2 cursor-pointer">
-              <input type="radio" name="t-pm-${ti}" value="credit" ${t.pm==='credit'?'checked':''} onchange="togglePartial(${ti})" class="w-4 h-4 accent-amber-500"> <span class="text-sm">Credit (ادھار)</span>
+              <input type="radio" name="t-pm-${ti}" value="credit" ${trip.pm==='credit'?'checked':''} onchange="togglePartial(${ti})" class="w-4 h-4 accent-amber-500"> <span class="text-sm">${t('pm.credit')}</span>
             </label>
             <label class="flex items-center gap-2 cursor-pointer">
-              <input type="radio" name="t-pm-${ti}" value="partial" ${t.pm==='partial'?'checked':''} onchange="togglePartial(${ti})" class="w-4 h-4 accent-blue-600"> <span class="text-sm">Partial (جزوی)</span>
+              <input type="radio" name="t-pm-${ti}" value="partial" ${trip.pm==='partial'?'checked':''} onchange="togglePartial(${ti})" class="w-4 h-4 accent-blue-600"> <span class="text-sm">${t('pm.partial')}</span>
             </label>
           </div>
-          <div id="t-partial-${ti}" class="${t.pm==='partial'?'mt-2':'hidden'}">
-            <label class="text-xs font-medium text-gray-500">Cash Received by Driver (Rs.)</label>
-            <input id="t-cash-${ti}" type="number" inputmode="numeric" value="${t.cashAmt||''}" placeholder="0" class="${INP}" oninput="updateSummary()">
-            <div class="text-xs text-amber-600 mt-1">Credit remaining for client: Rs. <span id="t-credit-${ti}">${Math.max(0,(+t.income||0)-(+t.cashAmt||0)).toLocaleString('en-PK')}</span></div>
+          <div id="t-partial-${ti}" class="${trip.pm==='partial'?'mt-2':'hidden'}">
+            <label class="text-xs font-medium text-gray-500">${t('field.cash_recv_driver')}</label>
+            <input id="t-cash-${ti}" type="number" inputmode="numeric" value="${trip.cashAmt||''}" placeholder="0" class="${INP}" oninput="updateSummary()">
+            <div class="text-xs text-amber-600 mt-1">${t('trip.credit_rem')} <span id="t-credit-${ti}">${Math.max(0,(+trip.income||0)-(+trip.cashAmt||0)).toLocaleString('en-PK')}</span></div>
           </div>
         </div>
       </div>
       <div class="border-t pt-3">
         <div class="flex justify-between items-center mb-2">
-          <span class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Trip Expenses</span>
-          <button onclick="addTE(${ti})" class="text-sm text-blue-600 font-medium px-2 py-1 rounded hover:bg-blue-50">+ Add Line</button>
+          <span class="text-xs font-semibold text-gray-500 uppercase tracking-wide">${t('section.trip_exp')}</span>
+          <button onclick="addTE(${ti})" class="text-sm text-blue-600 font-medium px-2 py-1 rounded hover:bg-blue-50">${t('btn.add_line')}</button>
         </div>
         <div class="space-y-2">${expRows}</div>
-        <div id="t-tot-${ti}" class="mt-2 text-right text-sm font-semibold text-red-500">Trip Expenses: ${Rs(tot)}</div>
+        <div id="t-tot-${ti}" class="mt-2 text-right text-sm font-semibold text-red-500">${t('misc.trip_exp')}: ${Rs(tot)}</div>
       </div>
     </div>`;
   }).join('');
@@ -720,17 +737,17 @@ function renderForm() {
       </div>
       <div class="flex gap-2 items-center">
         <div class="flex-1">
-          <label class="text-xs text-gray-400">Qty (Litres)</label>
+          <label class="text-xs text-gray-400">${t('field.qty')}</label>
           <input id="c-q-${i}" type="number" inputmode="numeric" value="${x.qty||''}" placeholder="0"
             class="w-full ${INPS} mt-0.5" oninput="coexpSync(${i})">
         </div>
         <div class="flex-1">
-          <label class="text-xs text-gray-400">Rate / Litre</label>
+          <label class="text-xs text-gray-400">${t('field.rate')}</label>
           <input id="c-r-${i}" type="number" inputmode="numeric" value="${x.rate||''}" placeholder="0"
             class="w-full ${INPS} mt-0.5" oninput="coexpSync(${i})">
         </div>
         <div class="flex-1">
-          <label class="text-xs text-gray-400">Total Amount</label>
+          <label class="text-xs text-gray-400">${t('field.total_amt')}</label>
           <input id="c-a-${i}" type="number" inputmode="numeric" value="${x.amt||''}" placeholder="0"
             class="w-full ${INPS} mt-0.5 font-semibold" oninput="updateSummary()"
             onkeydown="if(event.key==='Enter'){event.preventDefault();addCoExp();}">
@@ -740,28 +757,28 @@ function renderForm() {
 
   document.getElementById('view-entry').innerHTML = `
     <div class="mb-4">
-      <h1 class="text-xl font-bold text-slate-800">${FS.id ? 'Edit Entry' : 'New Daily Entry'}</h1>
-      <p class="text-gray-500 text-sm mt-0.5">Record trips, expenses & daily cash flow</p>
+      <h1 class="text-xl font-bold text-slate-800">${FS.id ? t('form.edit_entry') : t('form.new_entry')}</h1>
+      <p class="text-gray-500 text-sm mt-0.5">${t('form.subtitle')}</p>
     </div>
 
     <div class="bg-white rounded-xl border p-4 mb-4 shadow-sm">
-      <h2 class="font-semibold text-slate-700 mb-3">Day Details</h2>
+      <h2 class="font-semibold text-slate-700 mb-3">${t('section.day_details')}</h2>
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
-          <label class="text-xs font-medium text-gray-500">Date</label>
+          <label class="text-xs font-medium text-gray-500">${t('field.date')}</label>
           <input id="f-date" type="date" value="${FS.date}" class="${INP}" onchange="autoFillPrevCash()">
         </div>
         <div>
-          <label class="text-xs font-medium text-gray-500">Driver Name</label>
-          <input id="f-driver" type="text" value="${esc(FS.driver)}" list="drv-list" placeholder="Enter or select" class="${INP}" onchange="autoFillPrevCash()">
+          <label class="text-xs font-medium text-gray-500">${t('field.driver_name')}</label>
+          <input id="f-driver" type="text" value="${esc(FS.driver)}" list="drv-list" placeholder="${t('field.driver_placeholder')}" class="${INP}" onchange="autoFillPrevCash()">
           <datalist id="drv-list">${drvOpts}</datalist>
         </div>
         <div>
-          <label class="text-xs font-medium text-gray-500">Driver Previous Cash (Rs.)</label>
+          <label class="text-xs font-medium text-gray-500">${t('field.prev_cash')}</label>
           <input id="f-prev" type="number" inputmode="numeric" value="${FS.prevCash||''}" placeholder="0" class="${INP}" oninput="updateSummary()">
         </div>
         <div>
-          <label class="text-xs font-medium text-gray-500">Company Advance (Rs.)</label>
+          <label class="text-xs font-medium text-gray-500">${t('field.advance')}</label>
           <input id="f-adv" type="number" inputmode="numeric" value="${FS.advance||''}" placeholder="0" class="${INP}" oninput="updateSummary()">
         </div>
       </div>
@@ -773,95 +790,95 @@ function renderForm() {
 
     <div class="mb-4">
       <div class="flex justify-between items-center mb-3">
-        <h2 class="font-semibold text-slate-700">Trips</h2>
-        <button onclick="addTrip()" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-700 shadow-sm">+ Add Trip</button>
+        <h2 class="font-semibold text-slate-700">${t('section.trips')}</h2>
+        <button onclick="addTrip()" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-700 shadow-sm">${t('btn.add_trip')}</button>
       </div>
-      ${tripsHTML || '<div class="text-center py-10 text-gray-400 bg-white rounded-xl border text-sm">No trips yet. Tap "+ Add Trip" to start.</div>'}
+      ${tripsHTML || `<div class="text-center py-10 text-gray-400 bg-white rounded-xl border text-sm">${t('trip.no_trips')}</div>`}
     </div>
 
     <div class="bg-white rounded-xl border p-4 mb-4 shadow-sm">
       <div class="flex justify-between items-center mb-3">
         <div>
-          <h2 class="font-semibold text-slate-700">Misc Expenses</h2>
-          <p class="text-xs text-gray-400">Batti, Grease, Challan, Dihadi, Chai…</p>
+          <h2 class="font-semibold text-slate-700">${t('section.misc')}</h2>
+          <p class="text-xs text-gray-400">${t('misc.subtitle')}</p>
         </div>
-        <button onclick="addMisc()" class="bg-orange-500 text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-orange-600">+ Add</button>
+        <button onclick="addMisc()" class="bg-orange-500 text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-orange-600">${t('btn.add')}</button>
       </div>
-      <div class="space-y-2">${miscHTML || '<p class="text-sm text-gray-400">None added.</p>'}</div>
+      <div class="space-y-2">${miscHTML || `<p class="text-sm text-gray-400">${t('misc.none')}</p>`}</div>
       <div id="s-misc-tot" class="text-right mt-2 text-sm font-semibold text-orange-600 ${FS.misc.length?'':'hidden'}">Total: ${Rs(c.miscExp)}</div>
     </div>
 
     <div class="bg-white rounded-xl border p-4 mb-4 shadow-sm">
       <div class="flex justify-between items-center mb-3">
         <div>
-          <h2 class="font-semibold text-slate-700">Company Expenses</h2>
-          <p class="text-xs text-gray-400">Diesel fill-ups, M.Tag, etc.</p>
+          <h2 class="font-semibold text-slate-700">${t('section.coexp')}</h2>
+          <p class="text-xs text-gray-400">${t('coexp.subtitle')}</p>
         </div>
-        <button onclick="addCoExp()" class="bg-purple-600 text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-purple-700">+ Add</button>
+        <button onclick="addCoExp()" class="bg-purple-600 text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-purple-700">${t('btn.add')}</button>
       </div>
-      <div class="space-y-2">${coHTML || '<p class="text-sm text-gray-400">None added.</p>'}</div>
+      <div class="space-y-2">${coHTML || `<p class="text-sm text-gray-400">${t('misc.none')}</p>`}</div>
       <div id="s-coexp-tot" class="text-right mt-2 text-sm font-semibold text-purple-600 ${(FS.coexp||[]).length?'':'hidden'}">Total: ${Rs(c.coExp)}</div>
     </div>
 
     <div class="bg-white rounded-xl border p-4 mb-4 shadow-sm">
       <div class="flex justify-between items-center mb-3">
         <div>
-          <h2 class="font-semibold text-slate-700">Client Payments Received</h2>
-          <p class="text-xs text-gray-400">Cash, bank transfers, or expenses paid on client's behalf</p>
+          <h2 class="font-semibold text-slate-700">${t('section.cp')}</h2>
+          <p class="text-xs text-gray-400">${t('cp.subtitle')}</p>
         </div>
-        <button onclick="addCP()" class="bg-teal-600 text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-teal-700">+ Add</button>
+        <button onclick="addCP()" class="bg-teal-600 text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-teal-700">${t('btn.add')}</button>
       </div>
       <div class="space-y-3">
         ${(FS.clientPayments||[]).length ? (FS.clientPayments||[]).map((p,i)=>`
           <div class="border rounded-lg p-3 bg-teal-50 space-y-2">
             <div class="flex gap-2">
               <div class="flex-1">
-                <label class="text-xs text-gray-500">Client Name</label>
+                <label class="text-xs text-gray-500">${t('field.client_name')}</label>
                 <input id="cp-cl-${i}" type="text" value="${esc(p.client)}" placeholder="Client name" list="cust-list"
                   class="${INP} bg-white" oninput="updateSummary()">
               </div>
               <button onclick="remCP(${i})" class="w-9 h-9 flex items-center justify-center text-red-400 hover:text-red-600 shrink-0 rounded-lg hover:bg-red-50 self-end text-lg">✕</button>
             </div>
             <div>
-              <label class="text-xs text-gray-500">Description</label>
+              <label class="text-xs text-gray-500">${t('field.desc')}</label>
               <input id="cp-ds-${i}" type="text" value="${esc(p.desc)}" placeholder="e.g. Payment for April trips / Diesel paid on behalf"
                 class="${INP} bg-white" oninput="updateSummary()">
             </div>
             <div class="grid grid-cols-2 gap-2">
               <div>
-                <label class="text-xs text-gray-500">Amount (Rs.)</label>
+                <label class="text-xs text-gray-500">${t('field.amount')}</label>
                 <input id="cp-am-${i}" type="number" inputmode="numeric" value="${p.amount||''}" placeholder="0"
                   class="${INP} bg-white" oninput="updateSummary()"
                   onkeydown="if(event.key==='Enter'){event.preventDefault();addCP();}">
               </div>
               <div>
-                <label class="text-xs text-gray-500">Payment Mode</label>
+                <label class="text-xs text-gray-500">${t('field.payment_mode')}</label>
                 <select id="cp-mo-${i}" class="${INP} bg-white" onchange="updateSummary()">
-                  <option value="cash"    ${p.mode==='cash'?'selected':''}>Cash</option>
-                  <option value="bank"    ${p.mode==='bank'?'selected':''}>Bank Transfer</option>
-                  <option value="expense" ${p.mode==='expense'?'selected':''}>Expense on Behalf</option>
+                  <option value="cash"    ${p.mode==='cash'?'selected':''}>${t('mode.cash')}</option>
+                  <option value="bank"    ${p.mode==='bank'?'selected':''}>${t('mode.bank')}</option>
+                  <option value="expense" ${p.mode==='expense'?'selected':''}>${t('mode.expense')}</option>
                 </select>
               </div>
             </div>
-          </div>`).join('') : '<p class="text-sm text-gray-400">No client payments recorded.</p>'}
+          </div>`).join('') : `<p class="text-sm text-gray-400">${t('cp.none')}</p>`}
       </div>
-      <div id="s-cp-tot" class="text-right mt-2 text-sm font-semibold text-teal-700 ${(FS.clientPayments||[]).length?'':'hidden'}">Total Received: ${Rs((FS.clientPayments||[]).reduce((s,p)=>s+(+p.amount||0),0))}</div>
+      <div id="s-cp-tot" class="text-right mt-2 text-sm font-semibold text-teal-700 ${(FS.clientPayments||[]).length?'':'hidden'}">${t('cp.total_recv')}: ${Rs((FS.clientPayments||[]).reduce((s,p)=>s+(+p.amount||0),0))}</div>
     </div>
 
     <div class="bg-white rounded-xl border p-4 mb-4 shadow-sm">
       <div class="flex justify-between items-center mb-3">
         <div>
-          <h2 class="font-semibold text-slate-700">Vendor Payments Made</h2>
-          <p class="text-xs text-gray-400">Cash or bank payments made to vendors against credit expenses</p>
+          <h2 class="font-semibold text-slate-700">${t('section.vp')}</h2>
+          <p class="text-xs text-gray-400">${t('vp.subtitle')}</p>
         </div>
-        <button onclick="addVP()" class="bg-amber-600 text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-amber-700">+ Add</button>
+        <button onclick="addVP()" class="bg-amber-600 text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-amber-700">${t('btn.add')}</button>
       </div>
       <div class="space-y-3">
         ${(FS.vendorPayments||[]).length ? (FS.vendorPayments||[]).map((p,i)=>`
           <div class="border rounded-lg p-3 bg-amber-50 space-y-2">
             <div class="flex gap-2">
               <div class="flex-1">
-                <label class="text-xs text-gray-500">Vendor Name</label>
+                <label class="text-xs text-gray-500">${t('field.vendor_name')}</label>
                 <input id="vp-vn-${i}" type="text" value="${esc(p.vendor)}" placeholder="Vendor name" list="vendor-list"
                   class="${INP} bg-white" oninput="updateSummary()">
               </div>
@@ -869,58 +886,58 @@ function renderForm() {
             </div>
             <div class="grid grid-cols-2 gap-2">
               <div>
-                <label class="text-xs text-gray-500">Amount Paid (Rs.)</label>
+                <label class="text-xs text-gray-500">${t('field.amount_paid')}</label>
                 <input id="vp-am-${i}" type="number" inputmode="numeric" value="${p.amount||''}" placeholder="0"
                   class="${INP} bg-white" oninput="updateSummary()"
                   onkeydown="if(event.key==='Enter'){event.preventDefault();addVP();}">
               </div>
               <div>
-                <label class="text-xs text-gray-500">Payment Mode</label>
+                <label class="text-xs text-gray-500">${t('field.payment_mode')}</label>
                 <select id="vp-mo-${i}" class="${INP} bg-white" onchange="updateSummary()">
-                  <option value="cash" ${p.mode==='cash'?'selected':''}>Cash</option>
-                  <option value="bank" ${p.mode==='bank'?'selected':''}>Bank Transfer</option>
+                  <option value="cash" ${p.mode==='cash'?'selected':''}>${t('mode.cash')}</option>
+                  <option value="bank" ${p.mode==='bank'?'selected':''}>${t('mode.bank')}</option>
                 </select>
               </div>
             </div>
-          </div>`).join('') : '<p class="text-sm text-gray-400">No vendor payments recorded.</p>'}
+          </div>`).join('') : `<p class="text-sm text-gray-400">${t('vp.none')}</p>`}
       </div>
-      <div id="s-vp-tot" class="text-right mt-2 text-sm font-semibold text-amber-700 ${(FS.vendorPayments||[]).length?'':'hidden'}">Total Paid: ${Rs((FS.vendorPayments||[]).reduce((s,p)=>s+(+p.amount||0),0))}</div>
+      <div id="s-vp-tot" class="text-right mt-2 text-sm font-semibold text-amber-700 ${(FS.vendorPayments||[]).length?'':'hidden'}">${t('vp.total_paid')}: ${Rs((FS.vendorPayments||[]).reduce((s,p)=>s+(+p.amount||0),0))}</div>
     </div>
 
     <div class="bg-white rounded-xl border p-4 mb-4 shadow-sm">
-      <h2 class="font-semibold text-slate-700 mb-3">Daily Summary</h2>
+      <h2 class="font-semibold text-slate-700 mb-3">${t('section.summary')}</h2>
       <div class="grid grid-cols-2 gap-3 mb-4">
         <div class="bg-green-50 border border-green-200 rounded-lg p-3 text-center">
-          <div class="text-xs text-green-600 font-medium uppercase tracking-wide">Total Income</div>
+          <div class="text-xs text-green-600 font-medium uppercase tracking-wide">${t('summary.income')}</div>
           <div id="s-inc" class="text-xl font-bold text-green-700 mt-1">${Rs(c.totalInc)}</div>
         </div>
         <div class="bg-red-50 border border-red-200 rounded-lg p-3 text-center">
-          <div class="text-xs text-red-600 font-medium uppercase tracking-wide">Total Expenses</div>
+          <div class="text-xs text-red-600 font-medium uppercase tracking-wide">${t('summary.expenses')}</div>
           <div id="s-exp" class="text-xl font-bold text-red-600 mt-1">${Rs(c.totalExp)}</div>
           <div id="s-exp2" class="text-xs text-red-400 mt-0.5 leading-tight">Trip: ${N(c.tripExp)} · Misc: ${N(c.miscExp)} · Co.: ${N(c.coExp)}</div>
         </div>
         <div class="bg-blue-50 border border-blue-200 rounded-lg p-3 text-center">
-          <div class="text-xs text-blue-600 font-medium uppercase tracking-wide">Net Profit</div>
+          <div class="text-xs text-blue-600 font-medium uppercase tracking-wide">${t('summary.profit')}</div>
           <div id="s-prof" class="text-xl font-bold ${c.profit>=0?'text-blue-700':'text-red-600'} mt-1">${Rs(c.profit)}</div>
         </div>
         <div class="bg-amber-50 border border-amber-200 rounded-lg p-3 text-center">
-          <div class="text-xs text-amber-600 font-medium uppercase tracking-wide">Driver Cash In</div>
+          <div class="text-xs text-amber-600 font-medium uppercase tracking-wide">${t('summary.drv_in')}</div>
           <div id="s-drvin" class="text-xl font-bold text-amber-700 mt-1">${Rs(c.drvIn)}</div>
         </div>
         <div class="bg-slate-50 border border-slate-200 rounded-lg p-3 text-center col-span-2">
-          <div class="text-xs text-slate-600 font-medium uppercase tracking-wide">Driver Remaining (Carry Forward)</div>
+          <div class="text-xs text-slate-600 font-medium uppercase tracking-wide">${t('summary.drv_rem')}</div>
           <div id="s-drvrem" class="text-xl font-bold ${c.drvRem>=0?'text-amber-700':'text-red-600'} mt-1">${Rs(c.drvRem)}</div>
         </div>
       </div>
       <div>
-        <label class="text-xs font-medium text-gray-500">Notes</label>
-        <textarea id="f-notes" rows="2" placeholder="Any additional notes…" class="${INP} resize-none">${esc(FS.notes||'')}</textarea>
+        <label class="text-xs font-medium text-gray-500">${t('field.notes')}</label>
+        <textarea id="f-notes" rows="2" placeholder="${t('notes.ph')}" class="${INP} resize-none">${esc(FS.notes||'')}</textarea>
       </div>
     </div>
 
     <div class="flex gap-3 justify-end pb-4">
-      <button onclick="clearForm()" class="flex-1 sm:flex-none px-5 py-3 border rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-100">Clear</button>
-      <button onclick="saveEntry()" class="flex-1 sm:flex-none bg-green-600 text-white px-8 py-3 rounded-xl text-sm font-bold hover:bg-green-700 shadow">Save Entry</button>
+      <button onclick="clearForm()" class="flex-1 sm:flex-none px-5 py-3 border rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-100">${t('btn.clear')}</button>
+      <button onclick="saveEntry()" class="flex-1 sm:flex-none bg-green-600 text-white px-8 py-3 rounded-xl text-sm font-bold hover:bg-green-700 shadow">${t('btn.save')}</button>
     </div>`;
 }
 
@@ -930,16 +947,16 @@ function renderDaily() {
   const entries = [...data.entries].sort((a,b)=>b.date.localeCompare(a.date));
   document.getElementById('view-daily').innerHTML = `
     <div class="mb-4">
-      <h1 class="text-xl font-bold text-slate-800">Daily Ledger</h1>
-      <p class="text-gray-500 text-sm">${entries.length} entries recorded</p>
+      <h1 class="text-xl font-bold text-slate-800">${t('view.daily_title')}</h1>
+      <p class="text-gray-500 text-sm">${entries.length} ${t('daily.entries_count')}</p>
     </div>
-    <input type="text" placeholder="Search date, driver or destination…" id="dsearch"
+    <input type="text" placeholder="${t('daily.search_ph')}" id="dsearch"
       class="w-full border rounded-xl px-4 py-3 text-sm mb-4 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-300" oninput="filterDaily(this.value)">
     <div id="dlist" class="space-y-3">${buildDailyCards(entries)}</div>`;
 }
 
 function buildDailyCards(entries) {
-  if (!entries.length) return '<div class="text-center py-16 text-gray-400 bg-white rounded-xl border">No entries found.</div>';
+  if (!entries.length) return `<div class="text-center py-16 text-gray-400 bg-white rounded-xl border">${t('daily.no_entries')}</div>`;
   return entries.map(e=>{
     const c  = calc(e);
     const d  = new Date(e.date+'T00:00:00');
@@ -949,7 +966,7 @@ function buildDailyCards(entries) {
       <div class="flex justify-between items-start">
         <div>
           <div class="font-semibold text-slate-700">${ds}</div>
-          <div class="text-sm text-gray-500 mt-0.5">Driver: <strong>${esc(e.driver)}</strong> · ${e.trips.length} trip(s)</div>
+          <div class="text-sm text-gray-500 mt-0.5">${t('daily.driver')}: <strong>${esc(e.driver)}</strong> · ${e.trips.length} ${t('daily.trips')}</div>
         </div>
         <div class="text-right text-sm shrink-0 ml-3">
           <div class="text-green-600 font-bold">${Rs(c.totalInc)}</div>
@@ -958,7 +975,7 @@ function buildDailyCards(entries) {
         </div>
       </div>
       <div class="mt-2 flex gap-1.5 flex-wrap">
-        ${e.trips.map(t=>`<span class="bg-blue-50 text-blue-700 text-xs px-2 py-0.5 rounded-full">${esc(t.dest||'—')}</span>`).join('')}
+        ${e.trips.map(tr=>`<span class="bg-blue-50 text-blue-700 text-xs px-2 py-0.5 rounded-full">${esc(tr.dest||'—')}</span>`).join('')}
       </div>
     </div>`;
   }).join('');
@@ -989,17 +1006,17 @@ function openDay(id) {
     <div class="border rounded-lg p-3 mb-2">
       <div class="flex justify-between items-start mb-1">
         <div>
-          <span class="text-xs text-gray-400 font-medium">Trip ${i+1}</span>
+          <span class="text-xs text-gray-400 font-medium">${window.t('ledger.trip_label')} ${i+1}</span>
           <div class="font-semibold text-slate-700 text-sm">${esc(t.dest)}</div>
           ${t.cust ? `<div class="text-xs text-gray-500">${esc(t.cust)}</div>` : ''}
         </div>
-        <span class="text-xs px-2 py-1 rounded-full shrink-0 ml-2 ${t.pm==='cash'?'bg-green-100 text-green-700':t.pm==='partial'?'bg-blue-100 text-blue-700':'bg-amber-100 text-amber-700'}">${t.pm==='cash'?'Cash':t.pm==='partial'?`Partial (Cash: ${Rs(t.cashAmt||0)})` :'Credit'}</span>
+        <span class="text-xs px-2 py-1 rounded-full shrink-0 ml-2 ${t.pm==='cash'?'bg-green-100 text-green-700':t.pm==='partial'?'bg-blue-100 text-blue-700':'bg-amber-100 text-amber-700'}">${t.pm==='cash'?window.t('pm.cash'):t.pm==='partial'?`${window.t('pm.partial')} (${window.t('ledger.cash')}: ${Rs(t.cashAmt||0)})`:`${window.t('pm.credit')}`}</span>
       </div>
       <div class="flex justify-between items-start mt-2 pt-2 border-t gap-2">
         <div class="flex-1 min-w-0">
           ${cashExp?`<div class="text-xs text-gray-400">${cashExp}</div>`:''}
-          ${creditExp?`<div class="text-xs text-amber-600 mt-0.5">Credit: ${creditExp}</div>`:''}
-          ${!cashExp&&!creditExp?`<div class="text-xs text-gray-400">No expenses</div>`:''}
+          ${creditExp?`<div class="text-xs text-amber-600 mt-0.5">${window.t('pm.credit')}: ${creditExp}</div>`:''}
+          ${!cashExp&&!creditExp?`<div class="text-xs text-gray-400">${window.t('modal.no_exp')}</div>`:''}
         </div>
         <div class="text-right shrink-0">
           <div class="text-sm font-bold text-green-600">${Rs(t.income)}</div>
@@ -1021,7 +1038,7 @@ function openDay(id) {
       <span class="font-medium">${Rs(x.amt)}</span>
     </div>`).join('');
 
-  const modeLabel = { cash:'Cash', bank:'Bank Transfer', expense:'Expense on Behalf' };
+  const modeLabel = { cash:t('mode.cash'), bank:t('mode.bank'), expense:t('mode.expense') };
   const cpRows = (e.clientPayments||[]).filter(p=>+p.amount>0).map(p=>`
     <div class="flex justify-between text-sm py-1 items-start">
       <div>
@@ -1046,7 +1063,7 @@ function openDay(id) {
       <!-- Header -->
       <div class="flex justify-between items-start mb-4 pb-4 border-b">
         <div>
-          <div class="text-xs font-bold text-amber-600 uppercase tracking-widest">AlAwal Transit</div>
+          <div class="text-xs font-bold text-amber-600 uppercase tracking-widest">${esc(currentOrg?.name||'AlAwal Transit')}</div>
           <h2 class="text-lg font-bold text-slate-800 mt-1 leading-tight">${ds}</h2>
           <div class="text-gray-500 text-sm mt-0.5">Driver: <span class="font-semibold text-slate-700">${esc(e.driver)}</span></div>
         </div>
@@ -1055,67 +1072,67 @@ function openDay(id) {
 
       <!-- Action buttons -->
       <div class="no-print flex gap-2 mb-4 flex-wrap">
-        <button onclick="editDay('${id}')" class="flex-1 border px-3 py-2.5 rounded-lg text-sm font-medium hover:bg-gray-50 text-center">Edit</button>
-        <button onclick="delDay('${id}')" class="flex-1 border border-red-200 text-red-500 px-3 py-2.5 rounded-lg text-sm font-medium hover:bg-red-50 text-center">Delete</button>
-        <button onclick="printDay()" class="flex-1 bg-slate-700 text-white px-3 py-2.5 rounded-lg text-sm font-medium hover:bg-slate-800 text-center">Print</button>
+        <button onclick="editDay('${id}')" class="flex-1 border px-3 py-2.5 rounded-lg text-sm font-medium hover:bg-gray-50 text-center">${t('modal.edit')}</button>
+        <button onclick="delDay('${id}')" class="flex-1 border border-red-200 text-red-500 px-3 py-2.5 rounded-lg text-sm font-medium hover:bg-red-50 text-center">${t('modal.delete')}</button>
+        <button onclick="printDay()" class="flex-1 bg-slate-700 text-white px-3 py-2.5 rounded-lg text-sm font-medium hover:bg-slate-800 text-center">${t('modal.print')}</button>
       </div>
 
       <!-- Cash flow -->
       <div class="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4 text-sm leading-relaxed">
-        <span class="font-semibold text-amber-700">Driver Cash:</span>
-        Prev ${Rs(e.prevCash)}${+e.advance?` + Adv ${Rs(e.advance)}`:''} + Cash Inc ${Rs(c.cashInc)}
+        <span class="font-semibold text-amber-700">${t('modal.drv_cash')}</span>
+        ${t('modal.prev')} ${Rs(e.prevCash)}${+e.advance?` ${t('modal.adv')} ${Rs(e.advance)}`:''} ${t('modal.cash_inc')} ${Rs(c.cashInc)}
         <span class="font-bold text-amber-700"> = ${Rs(c.drvIn)}</span>
       </div>
 
       <!-- Trip Cards -->
-      <h3 class="font-semibold text-slate-700 mb-2">Trips</h3>
+      <h3 class="font-semibold text-slate-700 mb-2">${t('modal.trips_hdr')}</h3>
       ${tripCards}
       <div class="flex justify-between text-sm font-semibold mt-1 mb-4 bg-gray-50 rounded-lg px-3 py-2">
-        <span>Total Income</span><span class="text-green-600">${Rs(c.totalInc)}</span>
+        <span>${t('modal.total_income')}</span><span class="text-green-600">${Rs(c.totalInc)}</span>
       </div>
       <div class="flex justify-between text-sm font-semibold mb-5 bg-gray-50 rounded-lg px-3 py-2">
-        <span>Total Trip Expenses</span><span class="text-red-500">${Rs(c.tripExp)}</span>
+        <span>${t('modal.total_trip_exp')}</span><span class="text-red-500">${Rs(c.tripExp)}</span>
       </div>
 
       <!-- Misc + Company exp -->
       <div class="grid sm:grid-cols-2 gap-4 mb-4">
         ${miscRows ? `<div>
-          <h3 class="font-semibold text-slate-700 mb-2">Misc Expenses</h3>
+          <h3 class="font-semibold text-slate-700 mb-2">${t('modal.misc_exp')}</h3>
           <div class="bg-orange-50 border border-orange-100 rounded-lg p-3">
             ${miscRows}
             <div class="flex justify-between font-bold text-sm pt-2 mt-1 border-t border-orange-200">
-              <span>Total</span><span class="text-orange-600">${Rs(c.miscExp)}</span>
+              <span>${t('modal.total')}</span><span class="text-orange-600">${Rs(c.miscExp)}</span>
             </div>
           </div>
         </div>` : ''}
         ${coRows ? `<div>
-          <h3 class="font-semibold text-slate-700 mb-2">Company Expenses</h3>
+          <h3 class="font-semibold text-slate-700 mb-2">${t('modal.company_exp')}</h3>
           <div class="bg-purple-50 border border-purple-100 rounded-lg p-3">
             ${coRows}
             <div class="flex justify-between font-bold text-sm pt-2 mt-1 border-t border-purple-200">
-              <span>Total</span><span class="text-purple-600">${Rs(c.coExp)}</span>
+              <span>${t('modal.total')}</span><span class="text-purple-600">${Rs(c.coExp)}</span>
             </div>
           </div>
         </div>` : ''}
       </div>
 
       ${cpRows ? `<div class="mb-4">
-        <h3 class="font-semibold text-slate-700 mb-2">Client Payments Received</h3>
+        <h3 class="font-semibold text-slate-700 mb-2">${t('modal.cp_hdr')}</h3>
         <div class="bg-teal-50 border border-teal-100 rounded-lg p-3">
           ${cpRows}
           <div class="flex justify-between font-bold text-sm pt-2 mt-1 border-t border-teal-200">
-            <span>Total Received</span>
+            <span>${t('modal.total_recv')}</span>
             <span class="text-teal-700">${Rs((e.clientPayments||[]).reduce((s,p)=>s+(+p.amount||0),0))}</span>
           </div>
         </div>
       </div>` : ''}
 
       ${vpRows ? `<div class="mb-4">
-        <h3 class="font-semibold text-slate-700 mb-2">Vendor Payments Made</h3>
+        <h3 class="font-semibold text-slate-700 mb-2">${t('modal.vp_hdr')}</h3>
         <div class="bg-amber-50 border border-amber-100 rounded-lg p-3">
           ${vpRows}
           <div class="flex justify-between font-bold text-sm pt-2 mt-1 border-t border-amber-200">
-            <span>Total Paid</span>
+            <span>${t('modal.total_paid')}</span>
             <span class="text-amber-700">${Rs((e.vendorPayments||[]).reduce((s,p)=>s+(+p.amount||0),0))}</span>
           </div>
         </div>
@@ -1124,24 +1141,24 @@ function openDay(id) {
       <!-- Bottom summary bar -->
       <div class="grid grid-cols-2 gap-2 bg-slate-800 text-white rounded-xl p-3">
         <div class="text-center p-1">
-          <div class="text-xs text-slate-400 uppercase tracking-wide">Income</div>
+          <div class="text-xs text-slate-400 uppercase tracking-wide">${t('modal.lbl_income')}</div>
           <div class="text-lg font-bold text-green-400">${Rs(c.totalInc)}</div>
         </div>
         <div class="text-center p-1">
-          <div class="text-xs text-slate-400 uppercase tracking-wide">Expenses</div>
+          <div class="text-xs text-slate-400 uppercase tracking-wide">${t('modal.lbl_expenses')}</div>
           <div class="text-lg font-bold text-red-400">${Rs(c.totalExp)}</div>
         </div>
         <div class="text-center p-1">
-          <div class="text-xs text-slate-400 uppercase tracking-wide">Net Profit</div>
+          <div class="text-xs text-slate-400 uppercase tracking-wide">${t('modal.lbl_profit')}</div>
           <div class="text-lg font-bold ${c.profit>=0?'text-blue-300':'text-red-400'}">${Rs(c.profit)}</div>
         </div>
         <div class="text-center p-1">
-          <div class="text-xs text-slate-400 uppercase tracking-wide">Driver Remaining</div>
+          <div class="text-xs text-slate-400 uppercase tracking-wide">${t('modal.lbl_drv_rem')}</div>
           <div class="text-lg font-bold text-amber-300">${Rs(c.drvRem)}</div>
         </div>
       </div>
 
-      ${e.notes ? `<div class="text-sm text-gray-500 mt-3"><span class="font-medium text-gray-700">Notes:</span> ${esc(e.notes)}</div>` : ''}
+      ${e.notes ? `<div class="text-sm text-gray-500 mt-3"><span class="font-medium text-gray-700">${t('modal.notes_lbl')}</span> ${esc(e.notes)}</div>` : ''}
       <div class="h-6"></div>
     </div>`;
 
@@ -1218,25 +1235,25 @@ function openClientLedger(name) {
           <div class="text-xs text-gray-400">${ds} · ${esc(r.driver)}</div>
           <div class="text-sm font-semibold text-slate-700 truncate">${esc(r.dest)}</div>
           <div class="text-xs mt-0.5 ${r.pm==='cash'?'text-green-600':r.pm==='partial'?'text-blue-600':'text-amber-600'}">
-            ${r.pm==='cash'?'Cash: '+Rs(r.cash):r.pm==='partial'?'Partial — Cash: '+Rs(r.cash)+' · Credit: '+Rs(r.credit):'Full Credit'}
+            ${r.pm==='cash'?t('ledger.cash')+': '+Rs(r.cash):r.pm==='partial'?t('ledger.partial_cash')+Rs(r.cash)+t('ledger.credit_lbl')+Rs(r.credit):t('ledger.full_credit')}
           </div>
         </div>
         <div class="text-right shrink-0">
           ${r.credit>0?`<div class="text-sm font-bold text-red-500">+${Rs(r.credit)}</div>`:`<div class="text-sm text-green-600">${Rs(r.cash)}</div>`}
-          <div class="text-xs ${balColor} mt-0.5">Bal: ${Rs(Math.max(0,r.bal))}</div>
+          <div class="text-xs ${balColor} mt-0.5">${t('ledger.balance')} ${Rs(Math.max(0,r.bal))}</div>
         </div>
       </div>`;
     return `
       <div class="flex justify-between items-start py-3 border-b gap-2 bg-teal-50 px-2 rounded-lg my-1">
         <div>
           <div class="text-xs text-gray-400">${ds}</div>
-          <div class="text-sm font-semibold text-teal-700">Payment Received</div>
+          <div class="text-sm font-semibold text-teal-700">${t('ledger.payment_recv')}</div>
           ${r.desc?`<div class="text-xs text-gray-500">${esc(r.desc)}</div>`:''}
-          <div class="text-xs text-gray-400">${r.mode==='bank'?'Bank Transfer':r.mode==='expense'?'Expense on Behalf':'Cash'}</div>
+          <div class="text-xs text-gray-400">${r.mode==='bank'?t('ledger.bank'):r.mode==='expense'?t('ledger.expense_behalf'):t('ledger.cash')}</div>
         </div>
         <div class="text-right shrink-0">
           <div class="text-sm font-bold text-teal-600">−${Rs(r.amount)}</div>
-          <div class="text-xs ${balColor} mt-0.5">Bal: ${Rs(Math.max(0,r.bal))}</div>
+          <div class="text-xs ${balColor} mt-0.5">${t('ledger.balance')} ${Rs(Math.max(0,r.bal))}</div>
         </div>
       </div>`;
   }).join('');
@@ -1246,9 +1263,9 @@ function openClientLedger(name) {
     <div class="p-4 md:p-6">
       <div class="flex justify-between items-start mb-4 pb-4 border-b">
         <div>
-          <div class="text-xs font-bold text-amber-600 uppercase tracking-widest">Client Ledger</div>
+          <div class="text-xs font-bold text-amber-600 uppercase tracking-widest">${t('ledger.client')}</div>
           <h2 class="text-lg font-bold text-slate-800 mt-1">${esc(name)}</h2>
-          <div class="text-xs text-gray-400 mt-0.5">All-time transactions</div>
+          <div class="text-xs text-gray-400 mt-0.5">${t('ledger.all_time')}</div>
         </div>
         <div class="flex items-center gap-2">
           <button onclick="downloadClientLedger(decodeURIComponent('${safeN}'))"
@@ -1260,19 +1277,19 @@ function openClientLedger(name) {
       </div>
       <div class="grid grid-cols-3 gap-2 mb-4">
         <div class="bg-gray-50 border rounded-lg p-2 text-center">
-          <div class="text-xs text-gray-400">Invoiced</div>
+          <div class="text-xs text-gray-400">${t('ledger.invoiced')}</div>
           <div class="font-bold text-slate-700 text-sm">${Rs(totInv)}</div>
         </div>
         <div class="bg-teal-50 border border-teal-100 rounded-lg p-2 text-center">
-          <div class="text-xs text-gray-400">Payments</div>
+          <div class="text-xs text-gray-400">${t('ledger.payments')}</div>
           <div class="font-bold text-teal-600 text-sm">${Rs(totPaid)}</div>
         </div>
         <div class="${outstanding>0?'bg-red-50 border-red-100':'bg-green-50 border-green-100'} border rounded-lg p-2 text-center">
-          <div class="text-xs text-gray-400">Outstanding</div>
-          <div class="font-bold ${outstanding>0?'text-red-600':'text-green-600'} text-sm">${outstanding>0?Rs(outstanding):'Cleared'}</div>
+          <div class="text-xs text-gray-400">${t('ledger.outstanding')}</div>
+          <div class="font-bold ${outstanding>0?'text-red-600':'text-green-600'} text-sm">${outstanding>0?Rs(outstanding):t('ledger.cleared')}</div>
         </div>
       </div>
-      <div>${rowsHtml||'<p class="text-sm text-gray-400 text-center py-8">No transactions found.</p>'}</div>
+      <div>${rowsHtml||`<p class="text-sm text-gray-400 text-center py-8">${t('lbl.no_transactions')}</p>`}</div>
       <div class="h-6"></div>
     </div>`;
   document.getElementById('day-modal').classList.remove('hidden');
@@ -1344,23 +1361,23 @@ function openVendorLedger(name) {
         <div class="flex-1 min-w-0">
           <div class="text-xs text-gray-400">${ds} · ${esc(r.driver)}</div>
           <div class="text-sm font-semibold text-slate-700">${esc(r.desc)}</div>
-          <div class="text-xs text-gray-500 truncate">Trip: ${esc(r.dest)}</div>
+          <div class="text-xs text-gray-500 truncate">${t('ledger.trip_label')}: ${esc(r.dest)}</div>
         </div>
         <div class="text-right shrink-0">
           <div class="text-sm font-bold text-red-500">+${Rs(r.amount)}</div>
-          <div class="text-xs ${balColor} mt-0.5">Bal: ${Rs(Math.max(0,r.bal))}</div>
+          <div class="text-xs ${balColor} mt-0.5">${t('ledger.balance')} ${Rs(Math.max(0,r.bal))}</div>
         </div>
       </div>`;
     return `
       <div class="flex justify-between items-start py-3 border-b gap-2 bg-amber-50 px-2 rounded-lg my-1">
         <div>
           <div class="text-xs text-gray-400">${ds}</div>
-          <div class="text-sm font-semibold text-amber-700">Payment Made</div>
-          <div class="text-xs text-gray-400">${r.mode==='bank'?'Bank Transfer':'Cash'}</div>
+          <div class="text-sm font-semibold text-amber-700">${t('ledger.payment_made')}</div>
+          <div class="text-xs text-gray-400">${r.mode==='bank'?t('ledger.bank'):t('ledger.cash')}</div>
         </div>
         <div class="text-right shrink-0">
           <div class="text-sm font-bold text-green-600">−${Rs(r.amount)}</div>
-          <div class="text-xs ${balColor} mt-0.5">Bal: ${Rs(Math.max(0,r.bal))}</div>
+          <div class="text-xs ${balColor} mt-0.5">${t('ledger.balance')} ${Rs(Math.max(0,r.bal))}</div>
         </div>
       </div>`;
   }).join('');
@@ -1370,9 +1387,9 @@ function openVendorLedger(name) {
     <div class="p-4 md:p-6">
       <div class="flex justify-between items-start mb-4 pb-4 border-b">
         <div>
-          <div class="text-xs font-bold text-amber-600 uppercase tracking-widest">Vendor Ledger</div>
+          <div class="text-xs font-bold text-amber-600 uppercase tracking-widest">${t('ledger.vendor')}</div>
           <h2 class="text-lg font-bold text-slate-800 mt-1">${esc(name)}</h2>
-          <div class="text-xs text-gray-400 mt-0.5">All-time transactions</div>
+          <div class="text-xs text-gray-400 mt-0.5">${t('ledger.all_time')}</div>
         </div>
         <div class="flex items-center gap-2">
           <button onclick="downloadVendorLedger(decodeURIComponent('${safeN}'))"
@@ -1384,19 +1401,19 @@ function openVendorLedger(name) {
       </div>
       <div class="grid grid-cols-3 gap-2 mb-4">
         <div class="bg-red-50 border border-red-100 rounded-lg p-2 text-center">
-          <div class="text-xs text-gray-400">Total Credit</div>
+          <div class="text-xs text-gray-400">${t('lbl.total_credit')}</div>
           <div class="font-bold text-red-600 text-sm">${Rs(totPurchased)}</div>
         </div>
         <div class="bg-green-50 border border-green-100 rounded-lg p-2 text-center">
-          <div class="text-xs text-gray-400">Total Paid</div>
+          <div class="text-xs text-gray-400">${t('lbl.total_paid')}</div>
           <div class="font-bold text-green-600 text-sm">${Rs(totPaid)}</div>
         </div>
         <div class="${outstanding>0?'bg-amber-50 border-amber-100':'bg-green-50 border-green-100'} border rounded-lg p-2 text-center">
-          <div class="text-xs text-gray-400">Outstanding</div>
-          <div class="font-bold ${outstanding>0?'text-amber-700':'text-green-600'} text-sm">${outstanding>0?Rs(outstanding):'Cleared'}</div>
+          <div class="text-xs text-gray-400">${t('lbl.outstanding')}</div>
+          <div class="font-bold ${outstanding>0?'text-amber-700':'text-green-600'} text-sm">${outstanding>0?Rs(outstanding):t('lbl.cleared')}</div>
         </div>
       </div>
-      <div>${rowsHtml||'<p class="text-sm text-gray-400 text-center py-8">No transactions found.</p>'}</div>
+      <div>${rowsHtml||`<p class="text-sm text-gray-400 text-center py-8">${t('lbl.no_transactions')}</p>`}</div>
       <div class="h-6"></div>
     </div>`;
   document.getElementById('day-modal').classList.remove('hidden');
@@ -1442,7 +1459,7 @@ function editDay(id) {
 }
 
 async function delDay(id) {
-  if (!confirm('Delete this entry permanently?')) return;
+  if (!confirm(t('confirm.delete'))) return;
   appData.entries = appData.entries.filter(e=>e.id!==id);
   cache();
   closeModal();
@@ -1471,7 +1488,7 @@ function renderMonthly() {
   const def = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
   document.getElementById('view-monthly').innerHTML = `
     <div class="flex justify-between items-center mb-4">
-      <h1 class="text-xl font-bold text-slate-800">Monthly Dashboard</h1>
+      <h1 class="text-xl font-bold text-slate-800">${t('monthly.title')}</h1>
       <div class="flex items-center gap-1">
         <button onclick="shiftMonth(-1)" class="w-9 h-9 flex items-center justify-center rounded-lg border bg-white hover:bg-gray-50 text-slate-600 shadow-sm text-lg font-bold">‹</button>
         <input type="month" id="mpick" value="${def}" class="border rounded-lg px-3 py-2 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-300" onchange="buildMonthly(this.value)">
@@ -1489,7 +1506,7 @@ function buildMonthly(month) {
   mCharts = {};
 
   if (!entries.length) {
-    document.getElementById('mcontent').innerHTML = '<div class="text-center py-16 text-gray-400 bg-white rounded-xl border">No entries for this month.</div>';
+    document.getElementById('mcontent').innerHTML = `<div class="text-center py-16 text-gray-400 bg-white rounded-xl border">${t('monthly.no_entries')}</div>`;
     return;
   }
 
@@ -1508,11 +1525,11 @@ function buildMonthly(month) {
   // Driver cards (mobile-friendly, no wide table)
   const driverCards = Object.entries(dmap).map(([drv,d])=>`
     <div class="border rounded-lg p-3">
-      <div class="font-semibold text-slate-700 mb-2">${esc(drv)} <span class="text-xs text-gray-400 font-normal">${d.days} days · ${d.trips} trips</span></div>
+      <div class="font-semibold text-slate-700 mb-2">${esc(drv)} <span class="text-xs text-gray-400 font-normal">${d.days} ${t('lbl.days')} · ${d.trips} ${t('lbl.trips')}</span></div>
       <div class="grid grid-cols-3 gap-2 text-center text-sm">
-        <div><div class="text-xs text-gray-400">Income</div><div class="font-bold text-green-600">${Rs(d.inc)}</div></div>
-        <div><div class="text-xs text-gray-400">Expenses</div><div class="font-bold text-red-500">${Rs(d.exp)}</div></div>
-        <div><div class="text-xs text-gray-400">Profit</div><div class="font-bold ${d.prof>=0?'text-blue-700':'text-red-700'}">${Rs(d.prof)}</div></div>
+        <div><div class="text-xs text-gray-400">${t('lbl.income')}</div><div class="font-bold text-green-600">${Rs(d.inc)}</div></div>
+        <div><div class="text-xs text-gray-400">${t('lbl.expenses')}</div><div class="font-bold text-red-500">${Rs(d.exp)}</div></div>
+        <div><div class="text-xs text-gray-400">${t('lbl.profit')}</div><div class="font-bold ${d.prof>=0?'text-blue-700':'text-red-700'}">${Rs(d.prof)}</div></div>
       </div>
     </div>`).join('');
 
@@ -1539,13 +1556,13 @@ function buildMonthly(month) {
     <div class="border rounded-lg p-3">
       <div class="flex justify-between items-start mb-2">
         <button onclick="openVendorLedger(decodeURIComponent('${encodeURIComponent(v)}'))" class="text-sm font-semibold text-slate-700 hover:text-amber-600 hover:underline text-left cursor-pointer">${esc(v)}</button>
-        <span class="text-sm font-bold ${total>0?'text-amber-700':'text-green-600'} shrink-0 ml-2">${total>0?Rs(total):'Cleared'}</span>
+        <span class="text-sm font-bold ${total>0?'text-amber-700':'text-green-600'} shrink-0 ml-2">${total>0?Rs(total):t('lbl.cleared')}</span>
       </div>
       <div class="grid grid-cols-2 gap-1 text-center text-xs">
-        <div class="bg-red-50 rounded p-1"><div class="text-gray-400">Credit (this month)</div><div class="font-semibold text-red-500">${Rs(currOwed)}</div></div>
-        <div class="bg-green-50 rounded p-1"><div class="text-gray-400">Paid (this month)</div><div class="font-semibold text-green-600">${Rs(currPaid)}</div></div>
+        <div class="bg-red-50 rounded p-1"><div class="text-gray-400">${t('lbl.credit_month')}</div><div class="font-semibold text-red-500">${Rs(currOwed)}</div></div>
+        <div class="bg-green-50 rounded p-1"><div class="text-gray-400">${t('lbl.paid_month')}</div><div class="font-semibold text-green-600">${Rs(currPaid)}</div></div>
       </div>
-      ${prevNet>0?`<div class="text-xs text-right mt-1.5 text-gray-400">Prev. months balance: <span class="font-semibold text-orange-500">${Rs(prevNet)}</span></div>`:''}
+      ${prevNet>0?`<div class="text-xs text-right mt-1.5 text-gray-400">${t('lbl.prev_balance')} <span class="font-semibold text-orange-500">${Rs(prevNet)}</span></div>`:''}
     </div>`;
     }).join('');
 
@@ -1569,14 +1586,14 @@ function buildMonthly(month) {
     <div class="border rounded-lg p-3">
       <div class="flex justify-between items-start mb-2">
         <button onclick="openClientLedger(decodeURIComponent('${encodeURIComponent(client)}'))" class="font-semibold text-slate-700 text-sm hover:text-amber-600 hover:underline text-left cursor-pointer">${esc(client)}</button>
-        <span class="text-sm font-bold ${total>0?'text-red-600':'text-gray-400'} shrink-0 ml-2">${total>0?Rs(total):'Cleared'}</span>
+        <span class="text-sm font-bold ${total>0?'text-red-600':'text-gray-400'} shrink-0 ml-2">${total>0?Rs(total):t('lbl.cleared')}</span>
       </div>
       <div class="grid grid-cols-3 gap-1 text-center text-xs">
-        <div class="bg-gray-50 rounded p-1"><div class="text-gray-400">Invoiced</div><div class="font-semibold text-slate-600">${Rs(inv)}</div></div>
-        <div class="bg-green-50 rounded p-1"><div class="text-gray-400">Cash Recv.</div><div class="font-semibold text-green-600">${Rs(cash)}</div></div>
-        <div class="bg-teal-50 rounded p-1"><div class="text-gray-400">Payments</div><div class="font-semibold text-teal-600">${Rs(payments)}</div></div>
+        <div class="bg-gray-50 rounded p-1"><div class="text-gray-400">${t('lbl.invoiced')}</div><div class="font-semibold text-slate-600">${Rs(inv)}</div></div>
+        <div class="bg-green-50 rounded p-1"><div class="text-gray-400">${t('lbl.cash_recv')}</div><div class="font-semibold text-green-600">${Rs(cash)}</div></div>
+        <div class="bg-teal-50 rounded p-1"><div class="text-gray-400">${t('lbl.payments')}</div><div class="font-semibold text-teal-600">${Rs(payments)}</div></div>
       </div>
-      ${prevOut>0?`<div class="text-xs text-right mt-1.5 text-gray-400">Prev. months balance: <span class="font-semibold text-orange-500">${Rs(prevOut)}</span></div>`:''}
+      ${prevOut>0?`<div class="text-xs text-right mt-1.5 text-gray-400">${t('lbl.prev_balance')} <span class="font-semibold text-orange-500">${Rs(prevOut)}</span></div>`:''}
     </div>`;
     }).join('');
 
@@ -1589,7 +1606,7 @@ function buildMonthly(month) {
       onclick="showView('daily');setTimeout(()=>openDay('${e.id}'),80)">
       <div>
         <div class="text-sm font-medium text-slate-700">${ds}</div>
-        <div class="text-xs text-gray-400">${esc(e.driver)} · ${e.trips.length} trips</div>
+        <div class="text-xs text-gray-400">${esc(e.driver)} · ${e.trips.length} ${t('lbl.trips')}</div>
       </div>
       <div class="text-right text-sm">
         <div class="text-green-600 font-medium">${Rs(c.totalInc)}</div>
@@ -1601,44 +1618,44 @@ function buildMonthly(month) {
   document.getElementById('mcontent').innerHTML = `
     <div class="grid grid-cols-2 gap-3 mb-4">
       <div class="bg-white rounded-xl border p-3 text-center shadow-sm">
-        <div class="text-xs text-gray-500 uppercase tracking-wide font-medium">Total Income</div>
+        <div class="text-xs text-gray-500 uppercase tracking-wide font-medium">${t('monthly.total_income')}</div>
         <div class="text-xl font-bold text-green-600 mt-1">${Rs(tot.inc)}</div>
       </div>
       <div class="bg-white rounded-xl border p-3 text-center shadow-sm">
-        <div class="text-xs text-gray-500 uppercase tracking-wide font-medium">Total Expenses</div>
+        <div class="text-xs text-gray-500 uppercase tracking-wide font-medium">${t('monthly.total_exp')}</div>
         <div class="text-xl font-bold text-red-500 mt-1">${Rs(tot.exp)}</div>
       </div>
       <div class="bg-white rounded-xl border p-3 text-center shadow-sm">
-        <div class="text-xs text-gray-500 uppercase tracking-wide font-medium">Net Profit</div>
+        <div class="text-xs text-gray-500 uppercase tracking-wide font-medium">${t('monthly.profit')}</div>
         <div class="text-xl font-bold ${tot.prof>=0?'text-blue-700':'text-red-600'} mt-1">${Rs(tot.prof)}</div>
       </div>
       <div class="bg-white rounded-xl border p-3 text-center shadow-sm">
-        <div class="text-xs text-gray-500 uppercase tracking-wide font-medium">Trips</div>
+        <div class="text-xs text-gray-500 uppercase tracking-wide font-medium">${t('monthly.trips')}</div>
         <div class="text-xl font-bold text-amber-600 mt-1">${tot.trips}</div>
-        <div class="text-xs text-gray-400">${entries.length} days</div>
+        <div class="text-xs text-gray-400">${entries.length} ${t('monthly.days')}</div>
       </div>
     </div>
 
     <div class="grid sm:grid-cols-2 gap-4 mb-4">
       <div class="bg-white rounded-xl border p-4 shadow-sm">
-        <h3 class="font-semibold text-slate-700 mb-3 text-sm">Income vs Expenses</h3>
+        <h3 class="font-semibold text-slate-700 mb-3 text-sm">${t('monthly.inc_vs_exp')}</h3>
         <canvas id="ch-bar"></canvas>
       </div>
       <div class="bg-white rounded-xl border p-4 shadow-sm">
-        <h3 class="font-semibold text-slate-700 mb-3 text-sm">Profit Trend</h3>
+        <h3 class="font-semibold text-slate-700 mb-3 text-sm">${t('monthly.profit_trend')}</h3>
         <canvas id="ch-line"></canvas>
       </div>
     </div>
 
     <div class="bg-white rounded-xl border shadow-sm mb-4">
-      <div class="p-3 border-b font-semibold text-slate-700">Driver Summary</div>
+      <div class="p-3 border-b font-semibold text-slate-700">${t('monthly.driver_summary')}</div>
       <div class="p-3 space-y-2">${driverCards}</div>
     </div>
 
     <div class="bg-white rounded-xl border shadow-sm mb-4">
       <div class="p-3 border-b flex justify-between items-center">
-        <span class="font-semibold text-slate-700">Client Balance</span>
-        ${totalCredit>0?`<span class="text-xs font-semibold text-red-600 bg-red-50 px-2 py-1 rounded-full">Total Due: ${Rs(totalCredit)}</span>`:'<span class="text-xs text-green-600">All cleared</span>'}
+        <span class="font-semibold text-slate-700">${t('monthly.client_balance')}</span>
+        ${totalCredit>0?`<span class="text-xs font-semibold text-red-600 bg-red-50 px-2 py-1 rounded-full">${t('monthly.total_due')}: ${Rs(totalCredit)}</span>`:`<span class="text-xs text-green-600">${t('monthly.all_cleared')}</span>`}
       </div>
       <div class="p-3 space-y-2">${clientCards}</div>
     </div>
@@ -1646,22 +1663,22 @@ function buildMonthly(month) {
     ${allVendorNames.size>0 ? `
     <div class="bg-white rounded-xl border shadow-sm mb-4">
       <div class="p-3 border-b flex justify-between items-center">
-        <span class="font-semibold text-slate-700">Vendor Payables</span>
+        <span class="font-semibold text-slate-700">${t('monthly.vendor_payables')}</span>
         ${totalVendorOwed>0
-          ? `<span class="text-xs font-semibold text-amber-700 bg-amber-50 px-2 py-1 rounded-full">Net Owed: ${Rs(totalVendorOwed)}</span>`
-          : `<span class="text-xs text-green-600 font-semibold">All Cleared</span>`}
+          ? `<span class="text-xs font-semibold text-amber-700 bg-amber-50 px-2 py-1 rounded-full">${t('monthly.net_owed')}: ${Rs(totalVendorOwed)}</span>`
+          : `<span class="text-xs text-green-600 font-semibold">${t('monthly.all_cleared2')}</span>`}
       </div>
       <div class="p-3 space-y-2">${vendorCards}</div>
     </div>` : ''}
 
     <div class="bg-white rounded-xl border shadow-sm">
       <div class="p-3 border-b flex justify-between items-center">
-        <span class="font-semibold text-slate-700">Daily Breakdown</span>
-        <span class="text-xs text-gray-400">Tap row for detail</span>
+        <span class="font-semibold text-slate-700">${t('monthly.daily_breakdown')}</span>
+        <span class="text-xs text-gray-400">${t('monthly.tap_detail')}</span>
       </div>
       ${dayCards}
       <div class="flex justify-between items-center py-2.5 px-3 bg-amber-50 font-semibold text-sm border-t-2">
-        <span>Month Total</span>
+        <span>${t('monthly.month_total')}</span>
         <div class="text-right">
           <div class="text-green-600">${Rs(tot.inc)}</div>
           <div class="${tot.prof>=0?'text-blue-700':'text-red-700'}">${Rs(tot.prof)}</div>
@@ -1794,6 +1811,230 @@ function exportData() {
   const date = new Date().toISOString().slice(0,10);
   XLSX.writeFile(wb, `AlAwal-Ledger-${date}.xlsx`);
 }
+
+// ─── I18N ────────────────────────────────────────────────────
+const TRANSLATIONS = {
+  en: {
+    // Nav / tabs
+    'nav.new_entry':'+ New Entry','nav.daily':'Daily View','nav.dashboard':'Dashboard',
+    'nav.export':'↓ Export Excel','nav.manage_team':'👥 Manage Team',
+    'nav.superadmin':'⚡ Superadmin Panel','nav.sign_out':'→ Sign Out',
+    'nav.subtitle':'Daily Ledger System','lang.toggle':'اردو',
+    'tab.new_entry':'New Entry','tab.daily':'Daily','tab.dashboard':'Dashboard',
+    // Form
+    'form.new_entry':'New Daily Entry','form.edit_entry':'Edit Entry',
+    'form.subtitle':'Record trips, expenses & daily cash flow',
+    'section.day_details':'Day Details',
+    'field.date':'Date','field.driver_name':'Driver Name',
+    'field.driver_placeholder':'Enter or select',
+    'field.prev_cash':'Driver Previous Cash (Rs.)','field.advance':'Company Advance (Rs.)',
+    'section.trips':'Trips','btn.add_trip':'+ Add Trip',
+    'trip.no_trips':'No trips yet. Tap "+ Add Trip" to start.',
+    'trip.label':'Trip','btn.remove':'Remove',
+    'field.destination':'Destination / Location','field.customer':'Customer / Party',
+    'field.income':'Income (Rs.)','field.payment_mode':'Payment Mode',
+    'pm.cash':'Cash (نقد)','pm.credit':'Credit (ادھار)','pm.partial':'Partial (جزوی)',
+    'field.cash_recv_driver':'Cash Received by Driver (Rs.)',
+    'trip.credit_rem':'Credit remaining for client: Rs.',
+    'section.trip_exp':'Trip Expenses','btn.add_line':'+ Add Line',
+    'exp.cash_opt':'Cash','exp.credit_opt':'Credit',
+    'section.misc':'Misc Expenses','misc.subtitle':'Batti, Grease, Challan, Dihadi, Chai…',
+    'btn.add':'+ Add','misc.none':'None added.','misc.trip_exp':'Trip Expenses',
+    'section.coexp':'Company Expenses','coexp.subtitle':'Diesel fill-ups, M.Tag, etc.',
+    'field.qty':'Qty (Litres)','field.rate':'Rate / Litre','field.total_amt':'Total Amount',
+    'section.cp':'Client Payments Received',
+    'cp.subtitle':'Cash, bank transfers, or expenses paid on client\'s behalf',
+    'field.client_name':'Client Name','field.desc':'Description','field.amount':'Amount (Rs.)',
+    'mode.cash':'Cash','mode.bank':'Bank Transfer','mode.expense':'Expense on Behalf',
+    'cp.none':'No client payments recorded.','cp.total_recv':'Total Received',
+    'section.vp':'Vendor Payments Made',
+    'vp.subtitle':'Cash or bank payments made to vendors against credit expenses',
+    'field.vendor_name':'Vendor Name','field.amount_paid':'Amount Paid (Rs.)',
+    'vp.none':'No vendor payments recorded.','vp.total_paid':'Total Paid',
+    'section.summary':'Daily Summary',
+    'summary.income':'Total Income','summary.expenses':'Total Expenses',
+    'summary.profit':'Net Profit','summary.drv_in':'Driver Cash In',
+    'summary.drv_rem':'Driver Remaining (Carry Forward)',
+    'field.notes':'Notes','notes.ph':'Any additional notes…',
+    'btn.clear':'Clear','btn.save':'Save Entry',
+    // Daily view
+    'view.daily_title':'Daily Ledger','daily.entries_count':'entries recorded',
+    'daily.search_ph':'Search date, driver or destination…',
+    'daily.no_entries':'No entries found.','daily.driver':'Driver','daily.trips':'trip(s)',
+    // Day modal
+    'modal.edit':'Edit','modal.delete':'Delete','modal.print':'Print',
+    'modal.drv_cash':'Driver Cash:','modal.prev':'Prev','modal.adv':'+ Adv',
+    'modal.cash_inc':'+ Cash Inc','modal.trips_hdr':'Trips',
+    'modal.total_income':'Total Income','modal.total_trip_exp':'Total Trip Expenses',
+    'modal.misc_exp':'Misc Expenses','modal.company_exp':'Company Expenses',
+    'modal.cp_hdr':'Client Payments Received','modal.vp_hdr':'Vendor Payments Made',
+    'modal.lbl_income':'Income','modal.lbl_expenses':'Expenses',
+    'modal.lbl_profit':'Net Profit','modal.lbl_drv_rem':'Driver Remaining',
+    'modal.notes_lbl':'Notes:','modal.total':'Total',
+    'modal.total_recv':'Total Received','modal.total_paid':'Total Paid',
+    'modal.payment_recv':'Payment Received','modal.payment_made':'Payment Made',
+    'modal.no_exp':'No expenses',
+    // Monthly
+    'monthly.title':'Monthly Dashboard','monthly.no_entries':'No entries for this month.',
+    'monthly.total_income':'Total Income','monthly.total_exp':'Total Expenses',
+    'monthly.profit':'Net Profit','monthly.trips':'Trips','monthly.days':'days',
+    'monthly.inc_vs_exp':'Income vs Expenses','monthly.profit_trend':'Profit Trend',
+    'monthly.driver_summary':'Driver Summary','monthly.client_balance':'Client Balance',
+    'monthly.total_due':'Total Due','monthly.all_cleared':'All cleared',
+    'monthly.vendor_payables':'Vendor Payables','monthly.net_owed':'Net Owed',
+    'monthly.all_cleared2':'All Cleared','monthly.daily_breakdown':'Daily Breakdown',
+    'monthly.tap_detail':'Tap row for detail','monthly.month_total':'Month Total',
+    // Common labels
+    'lbl.income':'Income','lbl.expenses':'Expenses','lbl.profit':'Profit',
+    'lbl.days':'days','lbl.trips':'trips',
+    'lbl.invoiced':'Invoiced','lbl.cash_recv':'Cash Recv.','lbl.payments':'Payments',
+    'lbl.credit_month':'Credit (this month)','lbl.paid_month':'Paid (this month)',
+    'lbl.prev_balance':'Prev. months balance:','lbl.outstanding':'Outstanding',
+    'lbl.total_credit':'Total Credit','lbl.total_paid':'Total Paid',
+    'lbl.cleared':'Cleared','lbl.no_transactions':'No transactions found.',
+    // Ledger
+    'ledger.client':'Client Ledger','ledger.vendor':'Vendor Ledger',
+    'ledger.all_time':'All-time transactions',
+    'ledger.trip_label':'Trip','ledger.cash':'Cash',
+    'ledger.partial_cash':'Partial — Cash: ','ledger.credit_lbl':' · Credit: ',
+    'ledger.full_credit':'Full Credit','ledger.balance':'Bal:',
+    'ledger.bank':'Bank Transfer','ledger.expense_behalf':'Expense on Behalf',
+    // Alerts / confirms
+    'alert.entry_saved':'Entry saved!','alert.date_driver':'Please enter date and driver name.',
+    'confirm.clear':'Clear the form?','confirm.delete':'Delete this entry permanently?',
+    'confirm.remove_member':'Remove this member?',
+    // Sync
+    'sync.syncing':'⟳ Syncing…','sync.ok':'✓ Saved',
+    'sync.offline':'◉ Offline','sync.error':'✗ Sync error',
+  },
+  ur: {
+    // Nav / tabs
+    'nav.new_entry':'+ نئی اندراج','nav.daily':'روزانہ','nav.dashboard':'ڈیش بورڈ',
+    'nav.export':'↓ ایکسل','nav.manage_team':'👥 ٹیم',
+    'nav.superadmin':'⚡ سپر ایڈمن','nav.sign_out':'→ لاگ آؤٹ',
+    'nav.subtitle':'روزانہ کھاتہ','lang.toggle':'English',
+    'tab.new_entry':'اندراج','tab.daily':'روزانہ','tab.dashboard':'ڈیش بورڈ',
+    // Form
+    'form.new_entry':'نئی روزانہ اندراج','form.edit_entry':'ترمیم',
+    'form.subtitle':'سفر، اخراجات اور نقد روانی ریکارڈ کریں',
+    'section.day_details':'دن کی تفصیل',
+    'field.date':'تاریخ','field.driver_name':'ڈرائیور کا نام',
+    'field.driver_placeholder':'نام لکھیں',
+    'field.prev_cash':'پچھلی نقد رقم (Rs.)','field.advance':'کمپنی ایڈوانس (Rs.)',
+    'section.trips':'سفر','btn.add_trip':'+ سفر شامل کریں',
+    'trip.no_trips':'کوئی سفر نہیں۔ "+ سفر شامل کریں" دبائیں۔',
+    'trip.label':'سفر','btn.remove':'ہٹائیں',
+    'field.destination':'منزل / مقام','field.customer':'گاہک / پارٹی',
+    'field.income':'آمدن (Rs.)','field.payment_mode':'ادائیگی کا طریقہ',
+    'pm.cash':'نقد','pm.credit':'ادھار','pm.partial':'جزوی',
+    'field.cash_recv_driver':'ڈرائیور کی نقد وصولی (Rs.)',
+    'trip.credit_rem':'گاہک کا باقی ادھار: Rs.',
+    'section.trip_exp':'سفری اخراجات','btn.add_line':'+ لائن شامل',
+    'exp.cash_opt':'نقد','exp.credit_opt':'ادھار',
+    'section.misc':'متفرق اخراجات','misc.subtitle':'بتی، گریس، چالان، دیہاڑی، چائے…',
+    'btn.add':'+ شامل','misc.none':'کچھ شامل نہیں۔','misc.trip_exp':'سفری اخراجات',
+    'section.coexp':'کمپنی اخراجات','coexp.subtitle':'ڈیزل، M.Tag وغیرہ',
+    'field.qty':'مقدار (لیٹر)','field.rate':'ریٹ / لیٹر','field.total_amt':'کل رقم',
+    'section.cp':'گاہک کی وصولیاں',
+    'cp.subtitle':'نقد، بینک ٹرانسفر یا گاہک کی طرف سے اخراجات',
+    'field.client_name':'گاہک کا نام','field.desc':'تفصیل','field.amount':'رقم (Rs.)',
+    'mode.cash':'نقد','mode.bank':'بینک ٹرانسفر','mode.expense':'گاہک کی طرف سے خرچ',
+    'cp.none':'کوئی وصولی درج نہیں۔','cp.total_recv':'کل وصول',
+    'section.vp':'وینڈر کو ادائیگیاں',
+    'vp.subtitle':'کریڈٹ اخراجات کے خلاف وینڈر کو ادائیگی',
+    'field.vendor_name':'وینڈر کا نام','field.amount_paid':'ادا کی رقم (Rs.)',
+    'vp.none':'کوئی ادائیگی درج نہیں۔','vp.total_paid':'کل ادا',
+    'section.summary':'روزانہ خلاصہ',
+    'summary.income':'کل آمدن','summary.expenses':'کل اخراجات',
+    'summary.profit':'خالص منافع','summary.drv_in':'ڈرائیور کی نقد',
+    'summary.drv_rem':'ڈرائیور باقی (آگے لے جائیں)',
+    'field.notes':'نوٹس','notes.ph':'اضافی نوٹس…',
+    'btn.clear':'صاف کریں','btn.save':'اندراج محفوظ کریں',
+    // Daily view
+    'view.daily_title':'روزانہ کھاتہ','daily.entries_count':'اندراجات',
+    'daily.search_ph':'تاریخ، ڈرائیور یا منزل تلاش کریں…',
+    'daily.no_entries':'کوئی اندراج نہیں۔','daily.driver':'ڈرائیور','daily.trips':'سفر',
+    // Day modal
+    'modal.edit':'ترمیم','modal.delete':'حذف','modal.print':'پرنٹ',
+    'modal.drv_cash':'ڈرائیور نقد:','modal.prev':'پچھلی','modal.adv':'+ ایڈوانس',
+    'modal.cash_inc':'+ نقد آمدن','modal.trips_hdr':'سفر',
+    'modal.total_income':'کل آمدن','modal.total_trip_exp':'کل سفری اخراجات',
+    'modal.misc_exp':'متفرق اخراجات','modal.company_exp':'کمپنی اخراجات',
+    'modal.cp_hdr':'گاہک کی وصولیاں','modal.vp_hdr':'وینڈر کو ادائیگیاں',
+    'modal.lbl_income':'آمدن','modal.lbl_expenses':'اخراجات',
+    'modal.lbl_profit':'منافع','modal.lbl_drv_rem':'ڈرائیور باقی',
+    'modal.notes_lbl':'نوٹس:','modal.total':'کل',
+    'modal.total_recv':'کل وصول','modal.total_paid':'کل ادا',
+    'modal.payment_recv':'رقم وصول','modal.payment_made':'ادائیگی',
+    'modal.no_exp':'کوئی اخراجات نہیں',
+    // Monthly
+    'monthly.title':'ماہانہ ڈیش بورڈ','monthly.no_entries':'اس مہینے کوئی اندراج نہیں۔',
+    'monthly.total_income':'کل آمدن','monthly.total_exp':'کل اخراجات',
+    'monthly.profit':'خالص منافع','monthly.trips':'سفر','monthly.days':'دن',
+    'monthly.inc_vs_exp':'آمدن بمقابلہ اخراجات','monthly.profit_trend':'منافع کا رجحان',
+    'monthly.driver_summary':'ڈرائیور خلاصہ','monthly.client_balance':'گاہک بیلنس',
+    'monthly.total_due':'کل واجب','monthly.all_cleared':'سب صاف',
+    'monthly.vendor_payables':'وینڈر واجبات','monthly.net_owed':'کل مقروض',
+    'monthly.all_cleared2':'سب صاف','monthly.daily_breakdown':'روزانہ تفصیل',
+    'monthly.tap_detail':'تفصیل کے لیے دبائیں','monthly.month_total':'ماہانہ کل',
+    // Common labels
+    'lbl.income':'آمدن','lbl.expenses':'اخراجات','lbl.profit':'منافع',
+    'lbl.days':'دن','lbl.trips':'سفر',
+    'lbl.invoiced':'انوائس','lbl.cash_recv':'نقد وصول','lbl.payments':'ادائیگیاں',
+    'lbl.credit_month':'ادھار (یہ مہینہ)','lbl.paid_month':'ادا (یہ مہینہ)',
+    'lbl.prev_balance':'پچھلے مہینوں کا بیلنس:','lbl.outstanding':'باقی',
+    'lbl.total_credit':'کل ادھار','lbl.total_paid':'کل ادا',
+    'lbl.cleared':'صاف','lbl.no_transactions':'کوئی لین دین نہیں۔',
+    // Ledger
+    'ledger.client':'گاہک کھاتہ','ledger.vendor':'وینڈر کھاتہ',
+    'ledger.all_time':'تمام لین دین',
+    'ledger.trip_label':'سفر','ledger.cash':'نقد',
+    'ledger.partial_cash':'جزوی — نقد: ','ledger.credit_lbl':' · ادھار: ',
+    'ledger.full_credit':'مکمل ادھار','ledger.balance':'بیلنس:',
+    'ledger.bank':'بینک ٹرانسفر','ledger.expense_behalf':'گاہک کی طرف سے خرچ',
+    // Alerts / confirms
+    'alert.entry_saved':'اندراج محفوظ ہو گیا!','alert.date_driver':'تاریخ اور ڈرائیور کا نام درج کریں۔',
+    'confirm.clear':'فارم صاف کریں؟','confirm.delete':'یہ اندراج مستقل حذف کریں؟',
+    'confirm.remove_member':'اس ممبر کو ہٹائیں؟',
+    // Sync
+    'sync.syncing':'⟳ محفوظ ہو رہا ہے…','sync.ok':'✓ محفوظ',
+    'sync.offline':'◉ آف لائن','sync.error':'✗ خرابی',
+  },
+};
+
+function t(key) {
+  return (TRANSLATIONS[currentLang]||TRANSLATIONS.en)[key] || TRANSLATIONS.en[key] || key;
+}
+
+function applyI18n() {
+  document.querySelectorAll('[data-i18n]').forEach(el => {
+    el.textContent = t(el.dataset.i18n);
+  });
+}
+
+function initLang() {
+  const email = currentUser?.email || 'default';
+  const saved = (localStorage.getItem(`lang_${email}`) || 'en');
+  currentLang = saved;
+  document.body.classList.toggle('lang-ur', saved === 'ur');
+  document.documentElement.dir = saved === 'ur' ? 'rtl' : 'ltr';
+  applyI18n();
+}
+
+function setLang(lang) {
+  currentLang = lang;
+  const email = currentUser?.email || 'default';
+  try { localStorage.setItem(`lang_${email}`, lang); } catch {}
+  document.body.classList.toggle('lang-ur', lang === 'ur');
+  document.documentElement.dir = lang === 'ur' ? 'rtl' : 'ltr';
+  applyI18n();
+  const active = document.querySelector('.view:not(.hidden)');
+  if (active?.id === 'view-entry')   renderForm();
+  if (active?.id === 'view-daily')   renderDaily();
+  if (active?.id === 'view-monthly') renderMonthly();
+}
+
+function toggleLang() { setLang(currentLang === 'en' ? 'ur' : 'en'); }
 
 // ─── ESCAPE ─────────────────────────────────────────────────
 function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
