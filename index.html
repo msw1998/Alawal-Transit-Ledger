@@ -485,8 +485,10 @@ async function inviteMember() {
   btn.textContent = 'Sending…';
   btn.disabled = true;
   try {
-    await apiFetch('org-auth?action=invite', { method: 'POST', body: { email, role } });
-    okEl.textContent = `Invite sent to ${email}`;
+    const result = await apiFetch('org-auth?action=invite', { method: 'POST', body: { email, role } });
+    okEl.textContent = result.alreadyRegistered
+      ? `${email} already has an account — added to your team directly.`
+      : `Invite sent to ${email}`;
     okEl.classList.remove('hidden');
     document.getElementById('invite-email').value = '';
     loadTeamMembers();

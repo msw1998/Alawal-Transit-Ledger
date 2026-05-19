@@ -119,27 +119,44 @@ exports.handler = async (event) => {
         return err(400, 'Valid email and role required');
 
       const siteUrl = process.env.SITE_URL || 'http://localhost:8888';
+      let targetUserId;
+      let alreadyRegistered = false;
 
-      // Invite (or re-invite) via Supabase Auth admin API
+      // Try to send an invite email; if user already has an account, look them up instead
       const { data: invited, error: invErr } = await supabase.auth.admin.inviteUserByEmail(
         email.trim(),
         { redirectTo: `${siteUrl}/signup.html` }
       );
-      if (invErr) throw invErr;
+
+      if (invErr) {
+        if (invErr.code !== 'email_exists') throw invErr;
+        // User already registered — find their ID via the admin REST API
+        alreadyRegistered = true;
+        const res  = await fetch(
+          `${process.env.SUPABASE_URL}/auth/v1/admin/users?email=${encodeURIComponent(email.trim())}&page=1&per_page=1`,
+          { headers: { apikey: process.env.SUPABASE_KEY, Authorization: `Bearer ${process.env.SUPABASE_KEY}` } }
+        );
+        if (!res.ok) throw new Error('Could not look up existing user');
+        const found = await res.json();
+        if (!found.users?.[0]) throw new Error('User not found');
+        targetUserId = found.users[0].id;
+      } else {
+        targetUserId = invited.user.id;
+      }
 
       // Upsert membership (idempotent)
       const { data: existingMember } = await supabase
-        .from('org_members').select('id').eq('user_id', invited.user.id).eq('org_id', ctx.orgId).single();
+        .from('org_members').select('id').eq('user_id', targetUserId).eq('org_id', ctx.orgId).single();
       if (!existingMember) {
         const { error: memErr } = await supabase.from('org_members').insert({
-          org_id: ctx.orgId, user_id: invited.user.id, role, invited_by: ctx.userId,
+          org_id: ctx.orgId, user_id: targetUserId, role, invited_by: ctx.userId,
         });
         if (memErr) throw memErr;
       } else {
         const { error: updErr } = await supabase.from('org_members').update({ role }).eq('id', existingMember.id);
         if (updErr) throw updErr;
       }
-      return ok({ ok: true, userId: invited.user.id });
+      return ok({ ok: true, userId: targetUserId, alreadyRegistered });
     }
 
     // ── DELETE remove-member (admin only) ───────────────────
