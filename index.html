@@ -549,17 +549,18 @@ function calc(e) {
   const miscExp      = e.misc.reduce((s,x)=>s+(+x.amt||0),0);
   const coExp        = (e.coexp||[]).reduce((s,x)=>s+(+x.amt||0),0);
   const totalExp     = tripExp + miscExp + coExp;
+  const transferOut  = (e.driverTransfers||[]).reduce((s,x)=>s+(+x.amt||0),0);
   const drvIn        = (+e.prevCash||0) + (+e.advance||0) + cashInc;
-  const drvRem       = drvIn - tripExpCash - miscExp;   // only cash expenses come out of driver's pocket
+  const drvRem       = drvIn - tripExpCash - miscExp - transferOut;
   const profit       = totalInc - totalExp;
-  return { cashInc, totalInc, tripExpCash, tripExpCredit, tripExp, miscExp, coExp, totalExp, drvIn, drvRem, profit };
+  return { cashInc, totalInc, tripExpCash, tripExpCredit, tripExp, miscExp, coExp, totalExp, transferOut, drvIn, drvRem, profit };
 }
 
 // ─── FORM STATE ─────────────────────────────────────────────
 let FS = null;
 
 function blankFS() {
-  return { id:null, date:new Date().toISOString().slice(0,10), driver:'', prevCash:0, advance:0, trips:[], misc:[], coexp:[], clientPayments:[], vendorPayments:[], notes:'' };
+  return { id:null, date:new Date().toISOString().slice(0,10), driver:'', prevCash:0, advance:0, trips:[], misc:[], coexp:[], clientPayments:[], vendorPayments:[], driverTransfers:[], notes:'' };
 }
 
 function readDOM() {
@@ -605,6 +606,10 @@ function readDOM() {
     x.amount = +(g(`vp-am-${i}`)||{}).value||0;
     x.mode   = (g(`vp-mo-${i}`)||{}).value||x.mode||'cash';
   });
+  (FS.driverTransfers||[]).forEach((x,i)=>{
+    x.toDriver = (g(`tr-dr-${i}`)||{}).value||x.toDriver||'';
+    x.amt      = +(g(`tr-am-${i}`)||{}).value||0;
+  });
 }
 
 function _focus(id) { const el=document.getElementById(id); if(el){el.focus();el.scrollIntoView({block:'nearest'});} }
@@ -619,8 +624,10 @@ function addCoExp()   { readDOM(); FS.coexp.push({desc:'',qty:0,rate:0,amt:0}); 
 function remCoExp(i)  { readDOM(); FS.coexp.splice(i,1); renderForm(); }
 function addCP()      { readDOM(); FS.clientPayments.push({client:'',desc:'',amount:0,mode:'cash'}); renderForm(); _focus('cp-cl-'+(FS.clientPayments.length-1)); }
 function remCP(i)     { readDOM(); FS.clientPayments.splice(i,1); renderForm(); }
-function addVP()      { readDOM(); if(!FS.vendorPayments)FS.vendorPayments=[]; FS.vendorPayments.push({vendor:'',amount:0,mode:'cash'}); renderForm(); _focus('vp-vn-'+(FS.vendorPayments.length-1)); }
-function remVP(i)     { readDOM(); FS.vendorPayments.splice(i,1); renderForm(); }
+function addVP()       { readDOM(); if(!FS.vendorPayments)FS.vendorPayments=[]; FS.vendorPayments.push({vendor:'',amount:0,mode:'cash'}); renderForm(); _focus('vp-vn-'+(FS.vendorPayments.length-1)); }
+function remVP(i)      { readDOM(); FS.vendorPayments.splice(i,1); renderForm(); }
+function addTransfer() { readDOM(); if(!FS.driverTransfers)FS.driverTransfers=[]; FS.driverTransfers.push({toDriver:'',amt:0}); renderForm(); _focus('tr-dr-'+(FS.driverTransfers.length-1)); }
+function remTransfer(i){ readDOM(); FS.driverTransfers.splice(i,1); renderForm(); }
 
 function coexpSync(i) {
   const q = +(document.getElementById(`c-q-${i}`)||{}).value||0;
@@ -657,6 +664,8 @@ function updateSummary() {
   if (cpTot) { const v=(FS.clientPayments||[]).reduce((s,p)=>s+(+p.amount||0),0); cpTot.textContent=`${t('cp.total_recv')}: ${Rs(v)}`; cpTot.classList.toggle('hidden',!(FS.clientPayments||[]).length); }
   const vpTot = el('s-vp-tot');
   if (vpTot) { const v=(FS.vendorPayments||[]).reduce((s,p)=>s+(+p.amount||0),0); vpTot.textContent=`${t('vp.total_paid')}: ${Rs(v)}`; vpTot.classList.toggle('hidden',!(FS.vendorPayments||[]).length); }
+  const trTot = el('s-transfer-tot');
+  if (trTot) { const v=(FS.driverTransfers||[]).reduce((s,x)=>s+(+x.amt||0),0); trTot.textContent=`Transferred: ${Rs(v)}`; trTot.classList.toggle('hidden',!(FS.driverTransfers||[]).length); }
 }
 
 function autoFillPrevCash() {
@@ -1051,6 +1060,33 @@ function renderForm() {
       <div id="s-vp-tot" class="text-right mt-2 text-sm font-semibold text-amber-700 ${(FS.vendorPayments||[]).length?'':'hidden'}">${t('vp.total_paid')}: ${Rs((FS.vendorPayments||[]).reduce((s,p)=>s+(+p.amount||0),0))}</div>
     </div>
 
+    <div class="bg-white rounded-xl border border-indigo-200 p-4 mb-4 shadow-sm">
+      <div class="flex justify-between items-center mb-3">
+        <div>
+          <h2 class="font-semibold text-slate-700">Driver Transfers</h2>
+          <p class="text-xs text-gray-400">Cash given to another driver (reduces hand cash)</p>
+        </div>
+        <button onclick="addTransfer()" class="bg-indigo-500 text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-indigo-600">+ Add</button>
+      </div>
+      <div class="space-y-2">${(FS.driverTransfers||[]).length ? (FS.driverTransfers||[]).map((x,i)=>`
+        <div class="flex gap-2 items-center">
+          <div class="flex-1">
+            <label class="text-xs text-gray-500">Transfer To (Driver)</label>
+            <input id="tr-dr-${i}" type="text" value="${esc(x.toDriver)}" placeholder="Recipient driver name" list="drv-list"
+              class="${INP} bg-indigo-50" oninput="updateSummary()">
+          </div>
+          <div class="w-32">
+            <label class="text-xs text-gray-500">Amount</label>
+            <input id="tr-am-${i}" type="number" inputmode="numeric" value="${x.amt||''}" placeholder="0"
+              class="${INP} bg-indigo-50 text-right" oninput="updateSummary()"
+              onkeydown="if(event.key==='Enter'){event.preventDefault();addTransfer();}">
+          </div>
+          <button onclick="remTransfer(${i})" class="w-9 h-9 flex items-center justify-center text-red-400 hover:text-red-600 shrink-0 rounded-lg hover:bg-red-50 text-lg mt-5">✕</button>
+        </div>`).join('') : `<p class="text-sm text-gray-400">No transfers recorded.</p>`}
+      </div>
+      <div id="s-transfer-tot" class="text-right mt-2 text-sm font-semibold text-indigo-600 ${(FS.driverTransfers||[]).length?'':'hidden'}">Transferred: ${Rs(c.transferOut)}</div>
+    </div>
+
     <div class="bg-white rounded-xl border p-4 mb-4 shadow-sm">
       <h2 class="font-semibold text-slate-700 mb-3">${t('section.summary')}</h2>
       <div class="grid grid-cols-2 gap-3 mb-4">
@@ -1124,6 +1160,15 @@ function buildDailyCards(entries) {
       <div class="mt-2 flex gap-1.5 flex-wrap">
         ${e.trips.map(tr=>`<span class="bg-blue-50 text-blue-700 text-xs px-2 py-0.5 rounded-full">${esc(tr.dest||'—')}</span>`).join('')}
       </div>
+      ${(() => {
+        const out = (e.driverTransfers||[]).filter(x=>+x.amt>0);
+        const inc = data.entries.filter(e2=>e2.date===e.date&&e2.id!==e.id).flatMap(e2=>(e2.driverTransfers||[]).filter(tr=>tr.toDriver===e.driver&&+tr.amt>0).map(tr=>({from:e2.driver,amt:+tr.amt})));
+        if (!out.length && !inc.length) return '';
+        return `<div class="mt-2 pt-2 border-t border-dashed border-indigo-100 flex flex-wrap gap-1.5">
+          ${out.map(x=>`<span class="bg-indigo-50 text-indigo-700 text-xs px-2 py-0.5 rounded-full">→ ${esc(x.toDriver)}: ${Rs(x.amt)}</span>`).join('')}
+          ${inc.map(x=>`<span class="bg-green-50 text-green-700 text-xs px-2 py-0.5 rounded-full">← ${esc(x.from)}: ${Rs(x.amt)}</span>`).join('')}
+        </div>`;
+      })()}
     </div>`;
   }).join('');
 }
@@ -1205,6 +1250,16 @@ function openDay(id) {
       <span class="font-semibold text-amber-700 shrink-0 ml-2">${Rs(p.amount)}</span>
     </div>`).join('');
 
+  // Outgoing driver transfers from this entry
+  const outTransfers = (e.driverTransfers||[]).filter(x=>+x.amt>0);
+  // Incoming transfers from other drivers on the same date
+  const incomingTransfers = appData.entries
+    .filter(e2 => e2.date === e.date && e2.id !== e.id)
+    .flatMap(e2 => (e2.driverTransfers||[])
+      .filter(tr => tr.toDriver === e.driver && +tr.amt > 0)
+      .map(tr => ({ from: e2.driver, amt: +tr.amt })));
+  const totalIncoming = incomingTransfers.reduce((s,tr)=>s+tr.amt, 0);
+
   document.getElementById('day-modal-body').innerHTML = `
     <div class="p-4 md:p-6">
       <!-- Header -->
@@ -1282,6 +1337,34 @@ function openDay(id) {
             <span>${t('modal.total_paid')}</span>
             <span class="text-amber-700">${Rs((e.vendorPayments||[]).reduce((s,p)=>s+(+p.amount||0),0))}</span>
           </div>
+        </div>
+      </div>` : ''}
+
+      <!-- Driver Transfers -->
+      ${(outTransfers.length || incomingTransfers.length) ? `
+      <div class="mb-4">
+        <h3 class="font-semibold text-slate-700 mb-2">Driver Transfers</h3>
+        <div class="rounded-lg border border-indigo-100 overflow-hidden">
+          ${outTransfers.map(x=>`
+          <div class="flex justify-between items-center text-sm px-3 py-2.5 bg-indigo-50">
+            <div class="flex items-center gap-2">
+              <span class="text-indigo-400 font-bold">→</span>
+              <span class="text-gray-600">Sent to <span class="font-semibold text-indigo-700">${esc(x.toDriver)}</span></span>
+            </div>
+            <span class="font-semibold text-indigo-700">− ${Rs(x.amt)}</span>
+          </div>`).join('')}
+          ${incomingTransfers.map(x=>`
+          <div class="flex justify-between items-center text-sm px-3 py-2.5 bg-green-50">
+            <div class="flex items-center gap-2">
+              <span class="text-green-500 font-bold">←</span>
+              <span class="text-gray-600">Received from <span class="font-semibold text-green-700">${esc(x.from)}</span></span>
+            </div>
+            <span class="font-semibold text-green-700">+ ${Rs(x.amt)}</span>
+          </div>`).join('')}
+          ${incomingTransfers.length ? `
+          <div class="flex justify-between text-xs font-semibold px-3 py-2 bg-green-100 text-green-800">
+            <span>Total received from other drivers</span><span>${Rs(totalIncoming)}</span>
+          </div>` : ''}
         </div>
       </div>` : ''}
 
