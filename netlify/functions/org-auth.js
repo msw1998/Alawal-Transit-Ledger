@@ -130,16 +130,20 @@ exports.handler = async (event) => {
 
       if (invErr) {
         if (invErr.code !== 'email_exists') throw invErr;
-        // User already registered — find their ID via the admin REST API
+        // User already registered — find their ID with exact email match
         alreadyRegistered = true;
-        const res  = await fetch(
-          `${process.env.SUPABASE_URL}/auth/v1/admin/users?email=${encodeURIComponent(email.trim())}&page=1&per_page=1`,
-          { headers: { apikey: process.env.SUPABASE_KEY, Authorization: `Bearer ${process.env.SUPABASE_KEY}` } }
-        );
-        if (!res.ok) throw new Error('Could not look up existing user');
-        const found = await res.json();
-        if (!found.users?.[0]) throw new Error('User not found');
-        targetUserId = found.users[0].id;
+        const normalised = email.trim().toLowerCase();
+        let found = null;
+        let page  = 1;
+        while (!found) {
+          const { data, error: listErr } = await supabase.auth.admin.listUsers({ page, perPage: 1000 });
+          if (listErr) throw listErr;
+          found = (data.users || []).find(u => u.email?.toLowerCase() === normalised) || null;
+          if (found || (data.users || []).length < 1000) break;
+          page++;
+        }
+        if (!found) throw new Error('User not found');
+        targetUserId = found.id;
       } else {
         targetUserId = invited.user.id;
       }
