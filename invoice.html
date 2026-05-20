@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Invoice Generator — RouteBook</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+  @media print {
+    .no-print { display: none !important; }
+    body { background: white !important; margin: 0; }
+    #invoice-print { box-shadow: none !important; border: none !important; border-radius: 0 !important; }
+  }
+  @page { margin: 1.5cm; }
+</style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+
+<!-- Loading overlay -->
+<div id="app-loader" style="position:fixed;inset:0;background:#0f172a;z-index:9999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1rem">
+  <div style="width:2.5rem;height:2.5rem;border:3px solid #334155;border-top-color:#f59e0b;border-radius:50%;animation:spin 0.8s linear infinite"></div>
+  <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+</div>
+
+<!-- Top nav (no-print) -->
+<nav class="no-print bg-slate-900 text-white px-4 py-3 flex items-center justify-between shadow-lg">
+  <div class="flex items-center gap-3">
+    <a href="/index.html" class="text-slate-400 hover:text-white transition-colors text-sm">← Back</a>
+    <span class="text-slate-600">|</span>
+    <div>
+      <div class="font-bold text-base leading-tight" id="nav-org-name">RouteBook</div>
+      <div class="text-xs text-slate-400">Invoice Generator</div>
+    </div>
+  </div>
+  <button onclick="exportPDF()" id="print-top-btn" class="hidden text-sm bg-green-600 hover:bg-green-700 text-white px-4 py-1.5 rounded-lg transition-colors">
+    ↓ Export PDF
+  </button>
+</nav>
+
+<!-- Settings prompt (shown when address/phone not set) -->
+<div id="settings-prompt" class="hidden no-print max-w-lg mx-auto mt-12 text-center px-4">
+  <div class="bg-white rounded-2xl shadow-sm border p-8">
+    <div class="text-4xl mb-4">⚙️</div>
+    <h2 class="text-lg font-bold text-gray-800 mb-2">Business Info Required</h2>
+    <p class="text-sm text-gray-500 mb-6">Please set your business address and phone number in Settings before generating invoices. These appear on every invoice.</p>
+    <a href="/settings.html" class="inline-block bg-amber-500 hover:bg-amber-600 text-white font-semibold px-6 py-2.5 rounded-lg text-sm transition-colors">
+      Go to Settings
+    </a>
+  </div>
+</div>
+
+<!-- Invoice form -->
+<div id="invoice-form-wrap" class="hidden no-print max-w-3xl mx-auto px-4 py-6 space-y-4">
+  <h1 class="text-xl font-bold text-slate-800">Create Invoice</h1>
+
+  <div class="bg-white rounded-2xl shadow-sm border p-5 space-y-4">
+    <h2 class="text-sm font-semibold text-gray-600 uppercase tracking-wide">Invoice Details</h2>
+    <div class="grid grid-cols-2 sm:grid-cols-3 gap-3">
+      <div>
+        <label class="block text-xs font-medium text-gray-500 mb-1">Invoice #</label>
+        <input id="inv-num" type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400" placeholder="INV-001">
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-500 mb-1">Invoice Date</label>
+        <input id="inv-date" type="date" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400">
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-500 mb-1">Due Date <span class="text-gray-400 font-normal">(opt.)</span></label>
+        <input id="inv-due" type="date" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400">
+      </div>
+    </div>
+  </div>
+
+  <div class="bg-white rounded-2xl shadow-sm border p-5 space-y-3">
+    <h2 class="text-sm font-semibold text-gray-600 uppercase tracking-wide">Bill To</h2>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div>
+        <label class="block text-xs font-medium text-gray-500 mb-1">Client / Company Name</label>
+        <input id="client-name" type="text" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400" placeholder="e.g. ABC Trading Co.">
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-500 mb-1">Phone</label>
+        <input id="client-phone" type="tel" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400" placeholder="+92 300 0000000">
+      </div>
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-gray-500 mb-1">Address</label>
+      <textarea id="client-address" rows="2" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 resize-none" placeholder="Street, City"></textarea>
+    </div>
+  </div>
+
+  <!-- BOM Table -->
+  <div class="bg-white rounded-2xl shadow-sm border p-5">
+    <div class="flex justify-between items-center mb-3">
+      <h2 class="text-sm font-semibold text-gray-600 uppercase tracking-wide">Items / BOM</h2>
+      <button onclick="addBomRow()" class="text-sm text-blue-600 font-medium px-3 py-1.5 rounded-lg hover:bg-blue-50 border border-blue-200">+ Add Row</button>
+    </div>
+    <!-- Header row -->
+    <div class="grid grid-cols-12 gap-1 mb-1 px-1">
+      <div class="col-span-5 text-xs text-gray-400 font-medium">Description</div>
+      <div class="col-span-2 text-xs text-gray-400 font-medium text-center">Qty</div>
+      <div class="col-span-1 text-xs text-gray-400 font-medium text-center">Unit</div>
+      <div class="col-span-2 text-xs text-gray-400 font-medium text-right">Rate (Rs.)</div>
+      <div class="col-span-2 text-xs text-gray-400 font-medium text-right">Amount</div>
+    </div>
+    <div id="bom-rows" class="space-y-2"></div>
+
+    <div class="mt-4 pt-3 border-t space-y-1.5">
+      <div class="flex justify-between items-center">
+        <span class="text-sm text-gray-600">Subtotal</span>
+        <span id="inv-subtotal" class="text-sm font-semibold text-gray-800">Rs. 0</span>
+      </div>
+      <div class="flex items-center gap-2 justify-between">
+        <div class="flex items-center gap-2">
+          <label class="text-sm text-gray-600">Tax</label>
+          <input id="inv-tax-pct" type="number" min="0" max="100" value="0" placeholder="0"
+            class="w-16 border border-gray-300 rounded-lg px-2 py-1 text-sm text-right focus:outline-none focus:ring-2 focus:ring-amber-400"
+            oninput="recalcTotals()">
+          <span class="text-sm text-gray-500">%</span>
+        </div>
+        <span id="inv-tax-amt" class="text-sm text-gray-600">Rs. 0</span>
+      </div>
+      <div class="flex justify-between items-center pt-1 border-t">
+        <span class="text-base font-bold text-gray-800">Total</span>
+        <span id="inv-total" class="text-base font-bold text-green-700">Rs. 0</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="bg-white rounded-2xl shadow-sm border p-5">
+    <label class="block text-xs font-medium text-gray-500 mb-1">Notes / Terms <span class="text-gray-400 font-normal">(optional)</span></label>
+    <textarea id="inv-notes" rows="3" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 resize-none" placeholder="Payment terms, bank details, thank-you note…"></textarea>
+  </div>
+
+  <div class="flex gap-3 pb-8">
+    <button onclick="generateInvoice()" class="flex-1 bg-amber-500 hover:bg-amber-600 text-white font-bold py-3 rounded-xl text-sm shadow">
+      Generate Invoice →
+    </button>
+  </div>
+</div>
+
+<!-- PRINT-READY INVOICE -->
+<div id="invoice-print-wrap" class="hidden">
+  <div class="no-print bg-white border-b px-4 py-3 flex items-center gap-3 max-w-3xl mx-auto mt-4 rounded-t-2xl">
+    <button onclick="showForm()" class="text-sm text-gray-500 hover:text-gray-800 border border-gray-300 px-4 py-1.5 rounded-lg">← Edit</button>
+    <button onclick="exportPDF()" id="export-pdf-btn" class="text-sm bg-green-600 hover:bg-green-700 text-white px-5 py-1.5 rounded-lg font-medium">↓ Export PDF</button>
+  </div>
+
+  <div id="invoice-print" class="bg-white max-w-3xl mx-auto p-8 shadow-lg print:shadow-none" style="min-height:29.7cm">
+
+    <!-- Invoice Header -->
+    <div class="flex justify-between items-start mb-8">
+      <div>
+        <div id="p-logo-wrap" class="hidden mb-3">
+          <img id="p-logo" src="" alt="" class="h-14 object-contain">
+        </div>
+        <div class="text-xl font-bold text-gray-900" id="p-biz-name"></div>
+        <div class="text-sm text-gray-500 mt-1 whitespace-pre-line" id="p-biz-address"></div>
+        <div class="text-sm text-gray-500" id="p-biz-phone"></div>
+      </div>
+      <div class="text-right">
+        <div class="text-3xl font-extrabold text-amber-600 tracking-wide">INVOICE</div>
+        <div class="text-sm text-gray-500 mt-2">Invoice # <span class="font-semibold text-gray-800" id="p-inv-num"></span></div>
+        <div class="text-sm text-gray-500">Date: <span class="font-semibold text-gray-800" id="p-inv-date"></span></div>
+        <div class="text-sm text-gray-500" id="p-due-wrap">Due: <span class="font-semibold text-gray-800" id="p-inv-due"></span></div>
+      </div>
+    </div>
+
+    <!-- Divider -->
+    <div class="h-0.5 bg-amber-400 mb-6"></div>
+
+    <!-- Bill To -->
+    <div class="mb-8">
+      <div class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Bill To</div>
+      <div class="font-bold text-lg text-gray-900" id="p-client-name"></div>
+      <div class="text-sm text-gray-600 whitespace-pre-line" id="p-client-address"></div>
+      <div class="text-sm text-gray-600" id="p-client-phone"></div>
+    </div>
+
+    <!-- Items table -->
+    <table class="w-full mb-8 text-sm">
+      <thead>
+        <tr class="bg-slate-800 text-white">
+          <th class="text-left px-3 py-2.5 font-semibold rounded-tl-lg" style="width:45%">Description</th>
+          <th class="text-center px-3 py-2.5 font-semibold" style="width:8%">Qty</th>
+          <th class="text-center px-3 py-2.5 font-semibold" style="width:8%">Unit</th>
+          <th class="text-right px-3 py-2.5 font-semibold" style="width:18%">Rate (Rs.)</th>
+          <th class="text-right px-3 py-2.5 font-semibold rounded-tr-lg" style="width:21%">Amount (Rs.)</th>
+        </tr>
+      </thead>
+      <tbody id="p-bom-rows"></tbody>
+    </table>
+
+    <!-- Totals -->
+    <div class="flex justify-end mb-8">
+      <div class="w-64 space-y-2">
+        <div class="flex justify-between text-sm">
+          <span class="text-gray-500">Subtotal</span>
+          <span class="font-semibold text-gray-800" id="p-subtotal"></span>
+        </div>
+        <div class="flex justify-between text-sm" id="p-tax-row">
+          <span class="text-gray-500" id="p-tax-label">Tax</span>
+          <span class="text-gray-600" id="p-tax-amt"></span>
+        </div>
+        <div class="flex justify-between items-center pt-2 border-t-2 border-slate-800">
+          <span class="font-bold text-base text-gray-900">TOTAL</span>
+          <span class="font-extrabold text-xl text-amber-600" id="p-total"></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Notes -->
+    <div id="p-notes-wrap" class="hidden mb-6">
+      <div class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Notes / Terms</div>
+      <div class="text-sm text-gray-600 whitespace-pre-line bg-gray-50 rounded-lg p-3 border" id="p-notes"></div>
+    </div>
+
+    <!-- Footer -->
+    <div class="mt-12 pt-4 border-t text-center">
+      <div class="text-sm text-gray-500 mb-1">Thank you for your business!</div>
+      <div class="text-xs text-gray-400">Invoice generated using RouteBook by Peartech Solutions</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const API = '/.netlify/functions';
+let _sb = null;
+let _session = null;
+let _orgId = null;
+let _currentUser = null;
+let _bizInfo = {};
+let bomItems = [{ desc: '', qty: 1, unit: '', rate: 0 }];
+
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function fmtNum(n) { return (+n||0).toLocaleString('en-PK'); }
+
+async function apiFetch(path, opts = {}) {
+  const headers = { 'Content-Type': 'application/json' };
+  if (_session?.access_token) headers['Authorization'] = `Bearer ${_session.access_token}`;
+  if (_orgId) headers['X-Org-Id'] = _orgId;
+  const r = await fetch(`${API}/${path}`, {
+    method: opts.method || 'GET',
+    headers,
+    body: opts.body ? JSON.stringify(opts.body) : undefined,
+  });
+  const text = await r.text();
+  let data;
+  try { data = JSON.parse(text); } catch { data = text; }
+  if (!r.ok) throw new Error(data?.error || `HTTP ${r.status}`);
+  return data;
+}
+
+function hideLoader() {
+  const el = document.getElementById('app-loader');
+  if (el) el.style.display = 'none';
+}
+
+async function init() {
+  const cfg = await fetch(`${API}/config`).then(r => r.json()).catch(() => ({}));
+  if (!cfg.supabaseUrl || !cfg.supabaseAnonKey) {
+    hideLoader();
+    return;
+  }
+  _sb = window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
+  const { data: { session } } = await _sb.auth.getSession();
+  if (!session) { window.location.href = '/login.html'; return; }
+  _session = session;
+  _currentUser = session.user;
+  _orgId = localStorage.getItem(`activeOrg_${_currentUser.id}`) || null;
+
+  try {
+    const profile = await apiFetch('org-auth?action=profile');
+    if (!profile || profile.needsOrg) { window.location.href = '/signup.html'; return; }
+
+    _orgId = profile.org.id;
+    _bizInfo = profile.org;
+    document.getElementById('nav-org-name').textContent = profile.org.name;
+
+    // Check if address and phone are set
+    const hasAddr  = !!(profile.org.address || '').trim();
+    const hasPhone = !!(profile.org.phone   || '').trim();
+
+    if (!hasAddr || !hasPhone) {
+      document.getElementById('settings-prompt').classList.remove('hidden');
+    } else {
+      document.getElementById('invoice-form-wrap').classList.remove('hidden');
+      // Set today's date as default
+      document.getElementById('inv-date').value = new Date().toISOString().slice(0,10);
+      // Auto-generate invoice number
+      const num = String(Math.floor(Date.now() / 1000)).slice(-4);
+      document.getElementById('inv-num').value = `INV-${num}`;
+      renderBomRows();
+    }
+  } catch (e) {
+    console.error(e);
+    window.location.href = '/login.html';
+    return;
+  }
+  hideLoader();
+}
+
+function renderBomRows() {
+  const container = document.getElementById('bom-rows');
+  container.innerHTML = bomItems.map((item, i) => `
+    <div class="grid grid-cols-12 gap-1 items-center">
+      <div class="col-span-5">
+        <input type="text" value="${esc(item.desc)}" placeholder="Item description"
+          class="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-300"
+          oninput="bomItems[${i}].desc=this.value">
+      </div>
+      <div class="col-span-2">
+        <input type="number" inputmode="numeric" value="${item.qty||''}" placeholder="1"
+          class="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-amber-300"
+          oninput="bomItems[${i}].qty=+this.value||0;recalcTotals()">
+      </div>
+      <div class="col-span-1">
+        <input type="text" value="${esc(item.unit)}" placeholder="CF"
+          class="w-full border border-gray-200 rounded-lg px-1.5 py-1.5 text-xs text-center focus:outline-none focus:ring-2 focus:ring-amber-300"
+          oninput="bomItems[${i}].unit=this.value">
+      </div>
+      <div class="col-span-2">
+        <input type="number" inputmode="numeric" value="${item.rate||''}" placeholder="0"
+          class="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-sm text-right focus:outline-none focus:ring-2 focus:ring-amber-300"
+          oninput="bomItems[${i}].rate=+this.value||0;recalcTotals()">
+      </div>
+      <div class="col-span-2 flex items-center gap-1">
+        <span class="flex-1 text-right text-sm font-medium text-gray-700 px-2" id="bom-amt-${i}">${fmtNum((item.qty||0)*(item.rate||0))}</span>
+        ${bomItems.length > 1 ? `<button onclick="removeBomRow(${i})" class="text-red-400 hover:text-red-600 text-base w-6 flex-shrink-0">✕</button>` : '<div class="w-6"></div>'}
+      </div>
+    </div>`).join('');
+  recalcTotals();
+}
+
+function addBomRow() {
+  bomItems.push({ desc: '', qty: 1, unit: '', rate: 0 });
+  renderBomRows();
+}
+
+function removeBomRow(i) {
+  bomItems.splice(i, 1);
+  renderBomRows();
+}
+
+function recalcTotals() {
+  let subtotal = 0;
+  bomItems.forEach((item, i) => {
+    const amt = (item.qty||0) * (item.rate||0);
+    subtotal += amt;
+    const el = document.getElementById(`bom-amt-${i}`);
+    if (el) el.textContent = fmtNum(amt);
+  });
+  const taxPct = +(document.getElementById('inv-tax-pct')?.value)||0;
+  const taxAmt = subtotal * taxPct / 100;
+  const total  = subtotal + taxAmt;
+  document.getElementById('inv-subtotal').textContent = `Rs. ${fmtNum(subtotal)}`;
+  document.getElementById('inv-tax-amt').textContent  = `Rs. ${fmtNum(taxAmt)}`;
+  document.getElementById('inv-total').textContent    = `Rs. ${fmtNum(total)}`;
+}
+
+function formatDateDisplay(iso) {
+  if (!iso) return '';
+  const d = new Date(iso + 'T00:00:00');
+  return d.toLocaleDateString('en-PK', { day: '2-digit', month: 'long', year: 'numeric' });
+}
+
+function generateInvoice() {
+  // Collect BOM data from DOM into bomItems
+  bomItems.forEach((item, i) => {
+    const descEl = document.querySelector(`#bom-rows .grid:nth-child(${i+1}) input[type="text"]:first-child`);
+    // already updated via oninput — no extra sync needed
+  });
+
+  const invNum  = document.getElementById('inv-num').value.trim()     || '—';
+  const invDate = document.getElementById('inv-date').value;
+  const invDue  = document.getElementById('inv-due').value;
+  const cName   = document.getElementById('client-name').value.trim();
+  const cPhone  = document.getElementById('client-phone').value.trim();
+  const cAddr   = document.getElementById('client-address').value.trim();
+  const notes   = document.getElementById('inv-notes').value.trim();
+  const taxPct  = +(document.getElementById('inv-tax-pct')?.value)||0;
+
+  if (!cName) { alert('Please enter the client name.'); return; }
+
+  let subtotal = 0;
+  bomItems.forEach(item => subtotal += (item.qty||0)*(item.rate||0));
+  const taxAmt = subtotal * taxPct / 100;
+  const total  = subtotal + taxAmt;
+
+  // Fill print template
+  document.getElementById('p-biz-name').textContent    = _bizInfo.name    || '';
+  document.getElementById('p-biz-address').textContent = _bizInfo.address || '';
+  document.getElementById('p-biz-phone').textContent   = _bizInfo.phone   || '';
+  document.getElementById('p-inv-num').textContent     = invNum;
+  document.getElementById('p-inv-date').textContent    = formatDateDisplay(invDate);
+  document.getElementById('p-client-name').textContent    = cName;
+  document.getElementById('p-client-address').textContent = cAddr;
+  document.getElementById('p-client-phone').textContent   = cPhone;
+
+  // Logo
+  const logoWrap = document.getElementById('p-logo-wrap');
+  const logoImg  = document.getElementById('p-logo');
+  if (_bizInfo.logo_url) {
+    logoImg.src = _bizInfo.logo_url;
+    logoWrap.classList.remove('hidden');
+  } else {
+    logoWrap.classList.add('hidden');
+  }
+
+  // Due date
+  const dueWrap = document.getElementById('p-due-wrap');
+  if (invDue) {
+    document.getElementById('p-inv-due').textContent = formatDateDisplay(invDue);
+    dueWrap.classList.remove('hidden');
+  } else {
+    dueWrap.classList.add('hidden');
+  }
+
+  // BOM rows
+  let tbody = '';
+  bomItems.forEach((item, i) => {
+    if (!item.desc && !item.qty && !item.rate) return;
+    const amt = (item.qty||0)*(item.rate||0);
+    tbody += `<tr class="${i%2===0?'bg-white':'bg-gray-50'}">
+      <td class="px-3 py-2.5 text-gray-800">${esc(item.desc||'—')}</td>
+      <td class="px-3 py-2.5 text-center text-gray-700">${fmtNum(item.qty)}</td>
+      <td class="px-3 py-2.5 text-center text-gray-500 text-xs">${esc(item.unit)}</td>
+      <td class="px-3 py-2.5 text-right text-gray-700">${fmtNum(item.rate)}</td>
+      <td class="px-3 py-2.5 text-right font-semibold text-gray-800">${fmtNum(amt)}</td>
+    </tr>`;
+  });
+  document.getElementById('p-bom-rows').innerHTML = tbody;
+
+  // Totals
+  document.getElementById('p-subtotal').textContent = `Rs. ${fmtNum(subtotal)}`;
+  document.getElementById('p-total').textContent    = `Rs. ${fmtNum(total)}`;
+  const taxRow = document.getElementById('p-tax-row');
+  if (taxPct > 0) {
+    document.getElementById('p-tax-label').textContent = `Tax (${taxPct}%)`;
+    document.getElementById('p-tax-amt').textContent   = `Rs. ${fmtNum(taxAmt)}`;
+    taxRow.classList.remove('hidden');
+  } else {
+    taxRow.classList.add('hidden');
+  }
+
+  // Notes
+  const notesWrap = document.getElementById('p-notes-wrap');
+  if (notes) {
+    document.getElementById('p-notes').textContent = notes;
+    notesWrap.classList.remove('hidden');
+  } else {
+    notesWrap.classList.add('hidden');
+  }
+
+  // Show invoice, hide form
+  document.getElementById('invoice-form-wrap').classList.add('hidden');
+  document.getElementById('invoice-print-wrap').classList.remove('hidden');
+  document.getElementById('print-top-btn').classList.remove('hidden');
+  window.scrollTo(0, 0);
+}
+
+function showForm() {
+  document.getElementById('invoice-print-wrap').classList.add('hidden');
+  document.getElementById('invoice-form-wrap').classList.remove('hidden');
+  document.getElementById('print-top-btn').classList.add('hidden');
+  window.scrollTo(0, 0);
+}
+
+async function exportPDF() {
+  const invNum = document.getElementById('p-inv-num').textContent.trim() || 'invoice';
+  const btn = document.getElementById('export-pdf-btn');
+  const topBtn = document.getElementById('print-top-btn');
+  const origBtnText = btn?.textContent;
+  const origTopText = topBtn?.textContent;
+  if (btn) { btn.textContent = 'Generating…'; btn.disabled = true; }
+  if (topBtn) { topBtn.textContent = 'Generating…'; topBtn.disabled = true; }
+
+  try {
+    const element = document.getElementById('invoice-print');
+    const canvas = await html2canvas(element, {
+      scale: 2,
+      useCORS: true,
+      backgroundColor: '#ffffff',
+      logging: false,
+    });
+    const imgData = canvas.toDataURL('image/png');
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    const pageW = pdf.internal.pageSize.getWidth();
+    const pageH = pdf.internal.pageSize.getHeight();
+    const imgW  = pageW;
+    const imgH  = (canvas.height * imgW) / canvas.width;
+
+    if (imgH <= pageH) {
+      pdf.addImage(imgData, 'PNG', 0, 0, imgW, imgH);
+    } else {
+      let yOffset = 0;
+      while (yOffset < imgH) {
+        if (yOffset > 0) pdf.addPage();
+        pdf.addImage(imgData, 'PNG', 0, -yOffset, imgW, imgH);
+        yOffset += pageH;
+      }
+    }
+    pdf.save(`${invNum}.pdf`);
+  } catch (e) {
+    console.error('PDF export error:', e);
+    alert('Failed to export PDF. Please try again.');
+  } finally {
+    if (btn) { btn.textContent = origBtnText; btn.disabled = false; }
+    if (topBtn) { topBtn.textContent = origTopText; topBtn.disabled = false; }
+  }
+}
+
+init();
+</script>
+</body>
+</html>

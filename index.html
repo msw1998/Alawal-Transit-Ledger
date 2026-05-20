@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
-<title>AlAwal Transit — Daily Ledger</title>
+<title>RouteBook — Daily Ledger</title>
 <link rel="icon" type="image/png" href="AlawalTransit Logo.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Nastaliq+Urdu:wght@400;600;700&display=swap" rel="stylesheet">
@@ -59,7 +59,7 @@ body.lang-ur .ltr { direction: ltr; unicode-bidi: embed; }
   <img src="AlawalTransit Logo.png" alt=""
     style="width:64px;height:64px;border-radius:50%;object-fit:cover;box-shadow:0 0 0 4px rgba(245,158,11,0.25)">
   <div style="text-align:center;line-height:1.4">
-    <div style="color:#ffffff;font-family:-apple-system,sans-serif;font-size:20px;font-weight:700;letter-spacing:-0.3px">routeBook</div>
+    <div style="color:#ffffff;font-family:-apple-system,sans-serif;font-size:20px;font-weight:700;letter-spacing:-0.3px">RouteBook</div>
     <div style="color:#94a3b8;font-family:-apple-system,sans-serif;font-size:12px;margin-top:3px">Loading your dashboard…</div>
   </div>
   <div class="spinner"></div>
@@ -68,7 +68,7 @@ body.lang-ur .ltr { direction: ltr; unicode-bidi: embed; }
 <!-- TOP NAV -->
 <nav class="bg-slate-900 text-white px-4 py-3 flex items-center justify-between no-print sticky top-0 z-40 shadow-lg">
   <div class="flex items-center gap-3">
-    <img src="AlawalTransit Logo.png" alt="AlAwal Transit" class="h-9 w-9 rounded-full object-cover shrink-0" style="height:2.25rem;width:2.25rem;border-radius:9999px;object-fit:cover;flex-shrink:0">
+    <img id="nav-logo" src="AlawalTransit Logo.png" alt="RouteBook" class="h-9 w-9 rounded-full object-cover shrink-0" style="height:2.25rem;width:2.25rem;border-radius:9999px;object-fit:cover;flex-shrink:0">
     <!-- Org switcher -->
     <div class="relative" id="org-switcher-wrap">
       <button onclick="toggleOrgMenu(event)" id="org-switcher-btn" class="flex items-center gap-1.5 rounded-lg px-2 py-1 -mx-2 -my-1 transition-colors hover:bg-slate-700">
@@ -89,6 +89,7 @@ body.lang-ur .ltr { direction: ltr; unicode-bidi: embed; }
     <button onclick="FS=blankFS();showView('entry')" data-view="entry" class="nav-btn px-4 py-2 rounded-lg text-sm font-medium text-slate-300 hover:bg-slate-700 transition-colors" data-i18n="nav.new_entry">+ New Entry</button>
     <button onclick="showView('daily')" data-view="daily" class="nav-btn admin-only-tab px-4 py-2 rounded-lg text-sm font-medium text-slate-300 hover:bg-slate-700 transition-colors" data-i18n="nav.daily">Daily View</button>
     <button onclick="showView('monthly')" data-view="monthly" class="nav-btn admin-only-tab px-4 py-2 rounded-lg text-sm font-medium text-slate-300 hover:bg-slate-700 transition-colors" data-i18n="nav.dashboard">Dashboard</button>
+    <a href="/invoice.html" class="px-4 py-2 rounded-lg text-sm font-medium text-slate-300 hover:bg-slate-700 transition-colors">📄 Invoice</a>
     <div class="w-px h-5 bg-slate-600 mx-1"></div>
     <span class="sync-status text-xs font-medium text-slate-400 min-w-16 text-right"></span>
     <div class="w-px h-5 bg-slate-600 mx-1"></div>
@@ -104,7 +105,7 @@ body.lang-ur .ltr { direction: ltr; unicode-bidi: embed; }
       </button>
       <div id="user-menu-dropdown" class="hidden absolute right-0 top-11 bg-white rounded-xl shadow-2xl border border-gray-100 py-1.5 w-52 z-50 text-gray-800">
         <div class="px-4 py-2 text-xs text-gray-400 truncate border-b border-gray-100 mb-1" id="user-menu-email">…</div>
-        <button id="team-btn" onclick="openTeamModal()" class="w-full text-left px-4 py-2 text-sm hover:bg-gray-50" data-i18n="nav.manage_team">👥 Manage Team</button>
+        <a href="/settings.html" id="settings-link" class="admin-only-tab block px-4 py-2 text-sm hover:bg-gray-50">⚙ Settings</a>
         <a href="/superadmin.html" id="sa-link" class="hidden block px-4 py-2 text-sm text-purple-600 hover:bg-gray-50" data-i18n="nav.superadmin">⚡ Superadmin Panel</a>
         <div class="border-t border-gray-100 mt-1"></div>
         <button onclick="toggleLang()" class="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 text-blue-600"><span data-i18n="lang.toggle">اردو</span></button>
@@ -124,7 +125,7 @@ body.lang-ur .ltr { direction: ltr; unicode-bidi: embed; }
     <div class="px-4 py-2 text-xs text-gray-400 truncate border-b border-gray-100 mb-1 mobile-email-el">…</div>
     <div class="px-4 py-2 text-sm font-semibold org-name-el text-amber-600">…</div>
     <div class="border-t border-gray-100 mt-1"></div>
-    <button id="team-btn-mobile" onclick="closeMobileMenu();openTeamModal()" class="w-full text-left px-4 py-2 text-sm hover:bg-gray-50" data-i18n="nav.manage_team">👥 Manage Team</button>
+    <a href="/settings.html" class="admin-only-tab block px-4 py-2 text-sm hover:bg-gray-50">⚙ Settings</a>
     <a href="/superadmin.html" id="sa-link-mobile" class="hidden block px-4 py-2 text-sm text-purple-600 hover:bg-gray-50" data-i18n="nav.superadmin">⚡ Superadmin Panel</a>
     <div class="border-t border-gray-100 mt-1"></div>
     <button onclick="closeMobileMenu();toggleLang()" class="w-full text-left px-4 py-2 text-sm text-blue-600 hover:bg-gray-50"><span data-i18n="lang.toggle">اردو</span></button>
@@ -151,6 +152,10 @@ body.lang-ur .ltr { direction: ltr; unicode-bidi: embed; }
     <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
     <span class="text-xs font-medium" data-i18n="tab.dashboard">Dashboard</span>
   </button>
+  <a href="/invoice.html" class="tab-btn flex-1 py-3 flex flex-col items-center gap-0.5 text-slate-400 active:bg-slate-800 transition-colors">
+    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+    <span class="text-xs font-medium">Invoice</span>
+  </a>
 </div>
 
 <!-- DAY DETAIL MODAL -->
@@ -170,24 +175,60 @@ body.lang-ur .ltr { direction: ltr; unicode-bidi: embed; }
       <h3 class="text-sm font-semibold text-gray-600 mb-2">Current Members</h3>
       <div id="team-members-list" class="space-y-2 text-sm text-gray-500">Loading…</div>
     </div>
-    <!-- Invite -->
+    <!-- Add member tabs -->
     <div class="border-t pt-5">
-      <h3 class="text-sm font-semibold text-gray-600 mb-3">Invite Member</h3>
-      <div id="invite-error" class="hidden mb-2 text-xs text-red-500"></div>
-      <div id="invite-success" class="hidden mb-2 text-xs text-green-600"></div>
-      <div class="flex gap-2">
-        <input id="invite-email" type="email" placeholder="Email address"
-          class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400">
-        <select id="invite-role" class="border border-gray-300 rounded-lg px-2 py-2 text-sm">
-          <option value="editor">Editor</option>
-          <option value="admin">Admin</option>
-        </select>
-        <button onclick="inviteMember()" id="invite-btn"
-          class="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap">
-          Send Invite
+      <div class="flex gap-1 mb-4 bg-gray-100 rounded-lg p-1">
+        <button id="tab-invite-btn" onclick="switchTeamTab('invite')"
+          class="flex-1 py-1.5 text-sm rounded-md font-medium transition-colors bg-white shadow text-gray-800">
+          Invite via Email
+        </button>
+        <button id="tab-create-btn" onclick="switchTeamTab('create')"
+          class="flex-1 py-1.5 text-sm rounded-md font-medium transition-colors text-gray-500">
+          Create Account
         </button>
       </div>
-      <p class="text-xs text-gray-400 mt-2">Editor: data entry only. Admin: full access + team management.</p>
+
+      <!-- Invite via Email panel -->
+      <div id="team-tab-invite">
+        <div id="invite-error" class="hidden mb-2 text-xs text-red-500"></div>
+        <div id="invite-success" class="hidden mb-2 text-xs text-green-600"></div>
+        <div class="flex gap-2">
+          <input id="invite-email" type="email" placeholder="Email address"
+            class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400">
+          <select id="invite-role" class="border border-gray-300 rounded-lg px-2 py-2 text-sm">
+            <option value="editor">Editor</option>
+            <option value="admin">Admin</option>
+          </select>
+          <button onclick="inviteMember()" id="invite-btn"
+            class="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap">
+            Send Invite
+          </button>
+        </div>
+        <p class="text-xs text-gray-400 mt-2">Sends an invitation email. They'll set up their password.</p>
+      </div>
+
+      <!-- Create Account panel -->
+      <div id="team-tab-create" class="hidden">
+        <div id="create-acct-error" class="hidden mb-2 text-xs text-red-500"></div>
+        <div id="create-acct-success" class="hidden mb-2 text-xs text-green-600"></div>
+        <div class="space-y-2">
+          <input id="create-acct-email" type="text" placeholder="Email or username (e.g. nazir)"
+            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400">
+          <div class="flex gap-2">
+            <input id="create-acct-password" type="password" placeholder="Password (6+ chars)"
+              class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400">
+            <select id="create-acct-role" class="border border-gray-300 rounded-lg px-2 py-2 text-sm">
+              <option value="editor">Editor</option>
+              <option value="admin">Admin</option>
+            </select>
+          </div>
+          <button onclick="createAccount()" id="create-acct-btn"
+            class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg text-sm font-medium">
+            Create Account
+          </button>
+        </div>
+        <p class="text-xs text-gray-400 mt-2">Creates account directly — share email &amp; password with them.</p>
+      </div>
     </div>
   </div>
 </div>
@@ -311,11 +352,13 @@ function applyRoleUI(isSuperAdmin) {
   document.getElementById('user-menu-email').textContent = email;
   document.querySelectorAll('.mobile-email-el').forEach(el => el.textContent = email);
 
+  // Update nav logo with org logo if available
+  const navLogo = document.getElementById('nav-logo');
+  if (navLogo && currentOrg?.logo_url) navLogo.src = currentOrg.logo_url;
+
   // Hide admin-only UI for editors
   if (currentRole === 'editor') {
     document.querySelectorAll('.admin-only-tab').forEach(el => el.classList.add('hidden'));
-    document.getElementById('team-btn')?.classList.add('hidden');
-    document.getElementById('team-btn-mobile')?.classList.add('hidden');
   }
 
   // Show superadmin link
@@ -500,6 +543,53 @@ async function inviteMember() {
   btn.disabled = false;
 }
 
+function switchTeamTab(tab) {
+  const isInvite = tab === 'invite';
+  document.getElementById('team-tab-invite').classList.toggle('hidden', !isInvite);
+  document.getElementById('team-tab-create').classList.toggle('hidden', isInvite);
+  const active   = 'flex-1 py-1.5 text-sm rounded-md font-medium transition-colors bg-white shadow text-gray-800';
+  const inactive = 'flex-1 py-1.5 text-sm rounded-md font-medium transition-colors text-gray-500';
+  document.getElementById('tab-invite-btn').className = isInvite  ? active : inactive;
+  document.getElementById('tab-create-btn').className = !isInvite ? active : inactive;
+}
+
+async function createAccount() {
+  const raw      = document.getElementById('create-acct-email').value.trim();
+  const password = document.getElementById('create-acct-password').value;
+  const role     = document.getElementById('create-acct-role').value;
+  const errEl    = document.getElementById('create-acct-error');
+  const okEl     = document.getElementById('create-acct-success');
+  const btn      = document.getElementById('create-acct-btn');
+  errEl.classList.add('hidden');
+  okEl.classList.add('hidden');
+  if (!raw) { errEl.textContent = 'Email or username is required.'; errEl.classList.remove('hidden'); return; }
+  if (!password || password.length < 6) { errEl.textContent = 'Password must be at least 6 characters.'; errEl.classList.remove('hidden'); return; }
+  // If plain username (no @), auto-generate an internal email
+  const email = raw.includes('@') ? raw : raw + '@routebook.internal';
+  const isUsername = !raw.includes('@');
+  btn.textContent = 'Creating…';
+  btn.disabled = true;
+  try {
+    const result = await apiFetch('org-auth?action=create-account', { method: 'POST', body: { email, password, role } });
+    if (result.alreadyExists) {
+      okEl.textContent = `Account already existed — added to your team.`;
+    } else if (isUsername) {
+      okEl.innerHTML = `Account created! Share these credentials:<br><strong>Username:</strong> ${esc(raw)}<br><strong>Password:</strong> ${esc(password)}`;
+    } else {
+      okEl.innerHTML = `Account created! Share these credentials:<br><strong>Email:</strong> ${esc(email)}<br><strong>Password:</strong> ${esc(password)}`;
+    }
+    okEl.classList.remove('hidden');
+    document.getElementById('create-acct-email').value    = '';
+    document.getElementById('create-acct-password').value = '';
+    loadTeamMembers();
+  } catch (e) {
+    errEl.textContent = 'Failed: ' + e.message;
+    errEl.classList.remove('hidden');
+  }
+  btn.textContent = 'Create Account';
+  btn.disabled = false;
+}
+
 // ─── INITIAL LOAD: auth first → then sync data from API ──────
 function hideLoader() {
   const loader = document.getElementById('app-loader');
@@ -575,6 +665,11 @@ function readDOM() {
     t.dest   = (g(`t-dest-${ti}`)||{}).value||t.dest||'';
     t.cust   = (g(`t-cust-${ti}`)||{}).value||t.cust||'';
     t.income = +(g(`t-inc-${ti}`)||{}).value||0;
+    const incCfW = g(`t-inc-cf-wrap-${ti}`);
+    t.incCfMode = !!(incCfW && !incCfW.classList.contains('hidden'));
+    t.incCfQty  = +(g(`t-inc-cf-q-${ti}`)||{}).value||0;
+    t.incCfRate = +(g(`t-inc-cf-r-${ti}`)||{}).value||0;
+    if (t.incCfMode && t.incCfQty && t.incCfRate) t.income = t.incCfQty * t.incCfRate;
     const r  = document.querySelector(`input[name="t-pm-${ti}"]:checked`);
     if (r) t.pm = r.value;
     t.cashAmt = +(g(`t-cash-${ti}`)||{}).value||0;
@@ -583,6 +678,11 @@ function readDOM() {
       x.amt    = +(g(`t-ea-${ti}-${ei}`)||{}).value||0;
       x.mode   = (g(`t-em-${ti}-${ei}`)||{}).value||x.mode||'cash';
       x.vendor = (g(`t-ev-${ti}-${ei}`)||{}).value||x.vendor||'';
+      const cfW = g(`t-cf-wrap-${ti}-${ei}`);
+      x.cfMode = !!(cfW && !cfW.classList.contains('hidden'));
+      x.cfQty  = +(g(`t-cf-q-${ti}-${ei}`)||{}).value||0;
+      x.cfRate = +(g(`t-cf-r-${ti}-${ei}`)||{}).value||0;
+      if (x.cfMode && x.cfQty && x.cfRate) x.amt = x.cfQty * x.cfRate;
     });
   });
   FS.misc.forEach((x,i)=>{
@@ -614,9 +714,9 @@ function readDOM() {
 
 function _focus(id) { const el=document.getElementById(id); if(el){el.focus();el.scrollIntoView({block:'nearest'});} }
 
-function addTrip()    { readDOM(); FS.trips.push({id:uid(),dest:'',cust:'',income:0,pm:'cash',exp:[{desc:'Jhampir Dhakka Loading',amt:0,mode:'cash',vendor:''},{desc:'Royalty',amt:0,mode:'cash',vendor:''},{desc:'Driver Trip Commission',amt:0,mode:'cash',vendor:''},{desc:'Toll Plaza',amt:0,mode:'cash',vendor:''}]}); renderForm(); _focus('t-dest-'+(FS.trips.length-1)); }
+function addTrip()    { readDOM(); FS.trips.push({id:uid(),dest:'',cust:'',income:0,incCfMode:false,incCfQty:0,incCfRate:0,pm:'cash',exp:[{desc:'Jhampir Dhakka Loading',amt:0,mode:'cash',vendor:''},{desc:'Royalty',amt:0,mode:'cash',vendor:''},{desc:'Driver Trip Commission',amt:0,mode:'cash',vendor:''},{desc:'Toll Plaza',amt:0,mode:'cash',vendor:''}]}); renderForm(); _focus('t-dest-'+(FS.trips.length-1)); }
 function remTrip(i)   { readDOM(); FS.trips.splice(i,1); renderForm(); }
-function addTE(ti)    { readDOM(); FS.trips[ti].exp.push({desc:'',amt:0}); renderForm(); _focus('t-ed-'+ti+'-'+(FS.trips[ti].exp.length-1)); }
+function addTE(ti)    { readDOM(); FS.trips[ti].exp.push({desc:'',amt:0,mode:'cash',vendor:'',cfMode:false,cfQty:0,cfRate:0}); renderForm(); _focus('t-ed-'+ti+'-'+(FS.trips[ti].exp.length-1)); }
 function remTE(ti,ei) { readDOM(); FS.trips[ti].exp.splice(ei,1); renderForm(); }
 function addMisc()    { readDOM(); FS.misc.push({desc:'',amt:0}); renderForm(); _focus('m-d-'+(FS.misc.length-1)); }
 function remMisc(i)   { readDOM(); FS.misc.splice(i,1); renderForm(); }
@@ -634,6 +734,34 @@ function coexpSync(i) {
   const r = +(document.getElementById(`c-r-${i}`)||{}).value||0;
   if (q&&r) { const el=document.getElementById(`c-a-${i}`); if(el) el.value=q*r; }
   updateSummary();
+}
+
+function cfSync(ti, ei) {
+  const q = +(document.getElementById(`t-cf-q-${ti}-${ei}`)||{}).value||0;
+  const r = +(document.getElementById(`t-cf-r-${ti}-${ei}`)||{}).value||0;
+  if (q&&r) { const el=document.getElementById(`t-ea-${ti}-${ei}`); if(el) el.value=q*r; }
+  updateSummary();
+}
+
+function toggleCF(ti, ei) {
+  readDOM();
+  if (!FS.trips[ti]?.exp[ei]) return;
+  FS.trips[ti].exp[ei].cfMode = !FS.trips[ti].exp[ei].cfMode;
+  renderForm();
+}
+
+function incCfSync(ti) {
+  const q = +(document.getElementById(`t-inc-cf-q-${ti}`)||{}).value||0;
+  const r = +(document.getElementById(`t-inc-cf-r-${ti}`)||{}).value||0;
+  if (q&&r) { const el=document.getElementById(`t-inc-${ti}`); if(el) el.value=q*r; }
+  updateSummary();
+}
+
+function toggleIncCF(ti) {
+  readDOM();
+  if (!FS.trips[ti]) return;
+  FS.trips[ti].incCfMode = !FS.trips[ti].incCfMode;
+  renderForm();
 }
 
 function updateSummary() {
@@ -819,12 +947,28 @@ function renderForm() {
           <input id="t-ea-${ti}-${ei}" type="number" inputmode="numeric" value="${x.amt||''}" placeholder="0"
             class="w-20 ${INPS} text-right" oninput="updateSummary()"
             onkeydown="if(event.key==='Enter'){event.preventDefault();addTE(${ti});}">
+          <button onclick="toggleCF(${ti},${ei})" title="Cubic Feet Calculator"
+            class="px-1.5 py-2 text-xs rounded-lg border shrink-0 font-medium transition-colors ${x.cfMode?'bg-sky-100 border-sky-400 text-sky-700':'border-gray-300 text-gray-400 hover:border-sky-400 hover:text-sky-600'}">CF</button>
           <select id="t-em-${ti}-${ei}" class="border rounded-lg px-1.5 py-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white shrink-0"
             onchange="toggleExpMode(${ti},${ei})">
             <option value="cash"   ${(x.mode||'cash')==='cash'  ?'selected':''}>${t('exp.cash_opt')}</option>
             <option value="credit" ${x.mode==='credit'?'selected':''}>${t('exp.credit_opt')}</option>
           </select>
           <button onclick="remTE(${ti},${ei})" class="w-9 h-9 flex items-center justify-center text-red-400 hover:text-red-600 shrink-0 rounded-lg hover:bg-red-50 text-lg">✕</button>
+        </div>
+        <div id="t-cf-wrap-${ti}-${ei}" class="${x.cfMode?'':'hidden'}">
+          <div class="flex gap-2 bg-sky-50 rounded-lg p-2">
+            <div class="flex-1">
+              <label class="text-xs text-sky-600 font-medium">Price / CF</label>
+              <input id="t-cf-r-${ti}-${ei}" type="number" inputmode="numeric" value="${x.cfRate||''}" placeholder="0"
+                class="w-full ${INPS} mt-0.5 bg-white" oninput="cfSync(${ti},${ei})">
+            </div>
+            <div class="flex-1">
+              <label class="text-xs text-sky-600 font-medium">Total CF</label>
+              <input id="t-cf-q-${ti}-${ei}" type="number" inputmode="numeric" value="${x.cfQty||''}" placeholder="0"
+                class="w-full ${INPS} mt-0.5 bg-white" oninput="cfSync(${ti},${ei})">
+            </div>
+          </div>
         </div>
         <div id="t-ev-wrap-${ti}-${ei}" class="${x.mode==='credit'?'':'hidden'}">
           <input id="t-ev-${ti}-${ei}" type="text" value="${esc(x.vendor||'')}" placeholder="Vendor name"
@@ -851,7 +995,25 @@ function renderForm() {
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
         <div>
           <label class="text-xs font-medium text-gray-500">${t('field.income')}</label>
-          <input id="t-inc-${ti}" type="number" inputmode="numeric" value="${trip.income||''}" placeholder="0" class="${INP}" oninput="updateSummary()">
+          <div class="flex gap-1.5 items-center mt-1">
+            <input id="t-inc-${ti}" type="number" inputmode="numeric" value="${trip.income||''}" placeholder="0" class="flex-1 ${INPS}" oninput="updateSummary()">
+            <button onclick="toggleIncCF(${ti})" title="Cubic Feet Calculator"
+              class="px-1.5 py-2.5 text-xs rounded-lg border shrink-0 font-medium transition-colors ${trip.incCfMode?'bg-sky-100 border-sky-400 text-sky-700':'border-gray-300 text-gray-400 hover:border-sky-400 hover:text-sky-600'}">CF</button>
+          </div>
+          <div id="t-inc-cf-wrap-${ti}" class="${trip.incCfMode?'':'hidden'}">
+            <div class="flex gap-2 bg-sky-50 rounded-lg p-2 mt-1">
+              <div class="flex-1">
+                <label class="text-xs text-sky-600 font-medium">Price / CF</label>
+                <input id="t-inc-cf-r-${ti}" type="number" inputmode="numeric" value="${trip.incCfRate||''}" placeholder="0"
+                  class="w-full ${INPS} mt-0.5 bg-white" oninput="incCfSync(${ti})">
+              </div>
+              <div class="flex-1">
+                <label class="text-xs text-sky-600 font-medium">Total CF</label>
+                <input id="t-inc-cf-q-${ti}" type="number" inputmode="numeric" value="${trip.incCfQty||''}" placeholder="0"
+                  class="w-full ${INPS} mt-0.5 bg-white" oninput="incCfSync(${ti})">
+              </div>
+            </div>
+          </div>
         </div>
         <div>
           <label class="text-xs font-medium text-gray-500">${t('field.payment_mode')}</label>
@@ -1276,7 +1438,7 @@ function openDay(id) {
       <!-- Header -->
       <div class="flex justify-between items-start mb-4 pb-4 border-b">
         <div>
-          <div class="text-xs font-bold text-amber-600 uppercase tracking-widest">${esc(currentOrg?.name||'AlAwal Transit')}</div>
+          <div class="text-xs font-bold text-amber-600 uppercase tracking-widest">${esc(currentOrg?.name||'RouteBook')}</div>
           <h2 class="text-lg font-bold text-slate-800 mt-1 leading-tight">${ds}</h2>
           <div class="text-gray-500 text-sm mt-0.5">Driver: <span class="font-semibold text-slate-700">${esc(e.driver)}</span></div>
         </div>
@@ -1417,7 +1579,7 @@ function printDay() {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>AlAwal Transit – Trip Report</title>
+  <title>RouteBook – Trip Report</title>
   <script src="https://cdn.tailwindcss.com"><\/script>
   <style>
     body { background: white; }

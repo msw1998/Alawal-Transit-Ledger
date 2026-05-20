@@ -177,6 +177,81 @@ exports.handler = async (event) => {
       return ok({ ok: true });
     }
 
+    // ── POST create-account (admin only) ─────────────────────
+    if (action === 'create-account' && event.httpMethod === 'POST') {
+      const ctx = await getCtx(event);
+      if (!ctx || ctx.role !== 'admin') return err(403, 'Admins only');
+
+      const { email, password, role } = JSON.parse(event.body || '{}');
+      if (!email?.trim() || !password || password.length < 6 || !['admin', 'editor'].includes(role))
+        return err(400, 'Valid email, password (6+ chars), and role required');
+
+      let targetUserId;
+      let alreadyExists = false;
+
+      const { data: created, error: createErr } = await supabase.auth.admin.createUser({
+        email: email.trim(),
+        password,
+        email_confirm: true,
+      });
+
+      if (createErr) {
+        const msg = (createErr.message || '').toLowerCase();
+        if (createErr.code === 'email_exists' || msg.includes('already been registered') || msg.includes('already registered')) {
+          alreadyExists = true;
+          const normalised = email.trim().toLowerCase();
+          let found = null, page = 1;
+          while (!found) {
+            const { data, error: listErr } = await supabase.auth.admin.listUsers({ page, perPage: 1000 });
+            if (listErr) throw listErr;
+            found = (data.users || []).find(u => u.email?.toLowerCase() === normalised) || null;
+            if (found || (data.users || []).length < 1000) break;
+            page++;
+          }
+          if (!found) return err(400, 'Email already exists but user not found in system');
+          targetUserId = found.id;
+        } else {
+          throw createErr;
+        }
+      } else {
+        targetUserId = created.user.id;
+      }
+
+      const { data: existingMember } = await supabase
+        .from('org_members').select('id').eq('user_id', targetUserId).eq('org_id', ctx.orgId).single();
+      if (!existingMember) {
+        const { error: memErr } = await supabase.from('org_members').insert({
+          org_id: ctx.orgId, user_id: targetUserId, role, invited_by: ctx.userId,
+        });
+        if (memErr) throw memErr;
+      } else {
+        const { error: updErr } = await supabase.from('org_members').update({ role }).eq('id', existingMember.id);
+        if (updErr) throw updErr;
+      }
+
+      return ok({ ok: true, userId: targetUserId, alreadyExists });
+    }
+
+    // ── POST update-org (admin only) ──────────────────────────
+    if (action === 'update-org' && event.httpMethod === 'POST') {
+      const ctx = await getCtx(event);
+      if (!ctx || ctx.role !== 'admin') return err(403, 'Admins only');
+
+      const { name, address, phone, logoUrl } = JSON.parse(event.body || '{}');
+      if (!name?.trim()) return err(400, 'Business name is required');
+
+      const updates = { name: name.trim() };
+      if (address !== undefined) updates.address = address;
+      if (phone   !== undefined) updates.phone   = phone;
+      if (logoUrl !== undefined) updates.logo_url = logoUrl;
+
+      const { error: updErr } = await supabase
+        .from('organizations').update(updates).eq('id', ctx.orgId);
+      if (updErr) throw updErr;
+
+      return ok({ ok: true });
+    }
+
     return err(404, 'Unknown action');
   } catch (e) {
     console.error('org-auth error:', e);
