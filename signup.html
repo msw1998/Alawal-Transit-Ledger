@@ -56,7 +56,7 @@
 
     <p class="text-center text-sm text-gray-500 mt-5">
       Already have an account?
-      <a href="/login.html" class="text-amber-600 font-medium hover:underline">Sign in</a>
+      <a href="/login" class="text-amber-600 font-medium hover:underline">Sign in</a>
     </p>
   </div>
 
@@ -141,7 +141,7 @@ async function init() {
       }
       const profile = await apiFetch('org-auth?action=profile').catch(() => null);
       if (profile && !profile.needsOrg) {
-        window.location.href = '/index.html';
+        window.location.href = '/dashboard';
       } else {
         showStep2();
       }
@@ -154,7 +154,7 @@ async function init() {
     _session = session;
     const profile = await apiFetch('org-auth?action=profile').catch(() => null);
     if (profile && !profile.needsOrg) {
-      window.location.href = '/index.html';
+      window.location.href = '/dashboard';
       return;
     }
     showStep2();
@@ -219,7 +219,7 @@ async function handleOrgStep(e) {
       method: 'POST',
       body: { orgName, contactName: _fullName },
     });
-    window.location.href = '/index.html';
+    window.location.href = '/dashboard';
   } catch (err) {
     document.getElementById('error-box-2').textContent = 'Error: ' + err.message;
     document.getElementById('error-box-2').classList.remove('hidden');
@@ -272,7 +272,7 @@ async function handleInviteStep(e) {
     return;
   }
 
-  window.location.href = '/index.html';
+  window.location.href = '/dashboard';
 }
 
 init();

@@ -19,7 +19,7 @@
     </div>
   </div>
   <div class="flex items-center gap-3">
-    <a href="/index.html" class="text-slate-400 hover:text-white text-sm">← Back to App</a>
+    <a href="/dashboard" class="text-slate-400 hover:text-white text-sm">← Back to App</a>
     <button onclick="logout()" class="text-red-400 hover:text-red-300 text-sm">Logout</button>
   </div>
 </nav>
@@ -87,11 +87,11 @@ async function init() {
   _sb = window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
 
   const { data: { session } } = await _sb.auth.getSession();
-  if (!session) { window.location.href = '/login.html'; return; }
+  if (!session) { window.location.href = '/login'; return; }
   _token = session.access_token;
 
   _sb.auth.onAuthStateChange((e, s) => {
-    if (e === 'SIGNED_OUT') window.location.href = '/login.html';
+    if (e === 'SIGNED_OUT') window.location.href = '/login';
     if (s) _token = s.access_token;
   });
 
@@ -161,7 +161,7 @@ async function loadOrgs() {
 
 async function logout() {
   await _sb.auth.signOut();
-  window.location.href = '/login.html';
+  window.location.href = '/login';
 }
 
 function showError(msg) {

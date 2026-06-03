@@ -76,7 +76,7 @@
 
     <p class="text-center text-sm text-gray-500 mt-5">
       Don't have an account?
-      <a href="/signup.html" class="text-amber-600 font-medium hover:underline">Create one</a>
+      <a href="/signup" class="text-amber-600 font-medium hover:underline">Create one</a>
     </p>
   </div>
 </div>
@@ -106,7 +106,7 @@ async function init() {
     // Check URL hash — if type=recovery is present, don't redirect
     const hash = window.location.hash;
     if (!hash.includes('type=recovery')) {
-      window.location.href = '/index.html';
+      window.location.href = '/dashboard';
     }
   }
 }
@@ -130,7 +130,7 @@ async function handleLogin(e) {
     btn.disabled = false;
     return;
   }
-  window.location.href = '/index.html';
+  window.location.href = '/dashboard';
 }
 
 async function handleForgot(e) {
@@ -139,7 +139,7 @@ async function handleForgot(e) {
   const email = document.getElementById('reset-email').value.trim();
   const siteUrl = window.location.origin;
   const { error } = await _sb.auth.resetPasswordForEmail(email, {
-    redirectTo: `${siteUrl}/login.html`,
+    redirectTo: `${siteUrl}/login`,
   });
   if (error) { showError(error.message); return; }
   showInfo('Reset link sent! Check your inbox.');
@@ -168,7 +168,7 @@ async function handleReset(e) {
     return;
   }
   showInfo('Password updated! Redirecting…');
-  setTimeout(() => { window.location.href = '/index.html'; }, 1500);
+  setTimeout(() => { window.location.href = '/dashboard'; }, 1500);
 }
 
 function showForgot() {

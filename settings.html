@@ -17,7 +17,7 @@
 
 <nav class="bg-slate-900 text-white px-4 py-3 flex items-center justify-between shadow-lg">
   <div class="flex items-center gap-3">
-    <a href="/index.html" class="text-slate-400 hover:text-white transition-colors text-sm">← Back</a>
+    <a href="/dashboard" class="text-slate-400 hover:text-white transition-colors text-sm">← Back</a>
     <span class="text-slate-600">|</span>
     <div>
       <div class="font-bold text-base leading-tight" id="org-name-el">RouteBook</div>
@@ -192,7 +192,7 @@ async function apiFetch(path, opts = {}) {
 
 async function logout() {
   if (_sb) await _sb.auth.signOut();
-  window.location.href = '/login.html';
+  window.location.href = '/login';
 }
 
 function hideLoader() {
@@ -209,17 +209,17 @@ async function init() {
   }
   _sb = window.supabase.createClient(cfg.supabaseUrl, cfg.supabaseAnonKey);
   const { data: { session } } = await _sb.auth.getSession();
-  if (!session) { window.location.href = '/login.html'; return; }
+  if (!session) { window.location.href = '/login'; return; }
   _session = session;
   _currentUser = session.user;
   _orgId = localStorage.getItem(`activeOrg_${_currentUser.id}`) || null;
 
   try {
     const profile = await apiFetch('org-auth?action=profile');
-    if (!profile || profile.needsOrg) { window.location.href = '/signup.html'; return; }
+    if (!profile || profile.needsOrg) { window.location.href = '/signup'; return; }
     if (profile.role !== 'admin') {
       hideLoader();
-      document.body.innerHTML = '<div class="min-h-screen flex items-center justify-center"><div class="text-center"><div class="text-4xl mb-4">🔒</div><div class="text-lg font-semibold text-gray-700">Admin Access Required</div><div class="text-sm text-gray-400 mt-2">Settings can only be changed by admins.</div><a href="/index.html" class="mt-4 inline-block text-amber-600 hover:underline text-sm">← Back to Dashboard</a></div></div>';
+      document.body.innerHTML = '<div class="min-h-screen flex items-center justify-center"><div class="text-center"><div class="text-4xl mb-4">🔒</div><div class="text-lg font-semibold text-gray-700">Admin Access Required</div><div class="text-sm text-gray-400 mt-2">Settings can only be changed by admins.</div><a href="/dashboard" class="mt-4 inline-block text-amber-600 hover:underline text-sm">← Back to Dashboard</a></div></div>';
       return;
     }
     _orgId = profile.org.id;
@@ -235,7 +235,7 @@ async function init() {
     loadTeamMembers();
   } catch (e) {
     console.error('Init error:', e);
-    window.location.href = '/login.html';
+    window.location.href = '/login';
     return;
   }
   hideLoader();

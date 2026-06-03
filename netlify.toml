@@ -11,3 +11,39 @@
   [headers.values]
     X-Frame-Options = "DENY"
     X-Content-Type-Options = "nosniff"
+
+# Clean URLs — serve each page without the .html extension
+[[redirects]]
+  from = "/"
+  to   = "/landing.html"
+  status = 200
+
+[[redirects]]
+  from = "/login"
+  to   = "/login.html"
+  status = 200
+
+[[redirects]]
+  from = "/dashboard"
+  to   = "/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/signup"
+  to   = "/signup.html"
+  status = 200
+
+[[redirects]]
+  from = "/settings"
+  to   = "/settings.html"
+  status = 200
+
+[[redirects]]
+  from = "/invoice"
+  to   = "/invoice.html"
+  status = 200
+
+[[redirects]]
+  from = "/superadmin"
+  to   = "/superadmin.html"
+  status = 200

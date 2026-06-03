@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RouteBook — Daily Ledger for Freight Dispatchers</title>
+<link rel="icon" type="image/png" href="AlawalTransit Logo.png">
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  body { font-family: 'Inter', sans-serif; }
+  .heading { font-family: 'Poppins', sans-serif; }
+  html { scroll-behavior: smooth; }
+
+  .bg-grid {
+    background-image:
+      linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+    background-size: 48px 48px;
+  }
+
+  .amber-glow { box-shadow: 0 0 48px rgba(245,158,11,0.12); }
+
+  .feature-card {
+    transition: transform 0.22s ease, border-color 0.22s ease, box-shadow 0.22s ease;
+    cursor: default;
+  }
+  .feature-card:hover {
+    transform: translateY(-3px);
+    border-color: rgba(245,158,11,0.35);
+    box-shadow: 0 10px 36px rgba(245,158,11,0.07);
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .fade-up { animation: fadeUp 0.55s ease-out forwards; }
+  .delay-1 { animation-delay: 0.1s; opacity: 0; }
+  .delay-2 { animation-delay: 0.2s; opacity: 0; }
+  .delay-3 { animation-delay: 0.3s; opacity: 0; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .fade-up { animation: none; opacity: 1; }
+  }
+
+  .nav-link {
+    position: relative;
+    transition: color 0.18s;
+  }
+  .nav-link::after {
+    content: '';
+    position: absolute;
+    bottom: -2px; left: 0;
+    width: 0; height: 1.5px;
+    background: #f59e0b;
+    transition: width 0.22s ease;
+  }
+  .nav-link:hover::after { width: 100%; }
+
+  .step-connector {
+    position: absolute;
+    top: 22px;
+    left: calc(50% + 28px);
+    width: calc(100% - 56px);
+    height: 1px;
+    border-top: 1.5px dashed rgba(100,116,139,0.4);
+  }
+</style>
+</head>
+<body class="bg-slate-900 text-white antialiased">
+
+<!-- ─── NAV ─────────────────────────────────────────────────────────────── -->
+<nav class="sticky top-0 z-50 bg-slate-900/95 backdrop-blur-md border-b border-slate-800/80">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <img src="AlawalTransit Logo.png" alt="RouteBook" class="w-8 h-8 rounded-full object-cover shrink-0">
+      <span class="heading font-bold text-lg text-white tracking-tight">RouteBook</span>
+    </div>
+    <div class="hidden md:flex items-center gap-7">
+      <a href="#features"     class="nav-link text-slate-400 hover:text-white text-sm font-medium">Features</a>
+      <a href="#how-it-works" class="nav-link text-slate-400 hover:text-white text-sm font-medium">How It Works</a>
+      <a href="#for-who"      class="nav-link text-slate-400 hover:text-white text-sm font-medium">Who It's For</a>
+    </div>
+    <div class="flex items-center gap-3">
+      <a href="/login" class="text-slate-400 hover:text-white text-sm font-medium transition-colors">Sign In</a>
+      <a href="/login" class="heading bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-slate-900 font-semibold text-sm px-4 py-2 rounded-lg transition-colors">Get Started</a>
+    </div>
+  </div>
+</nav>
+
+<!-- ─── HERO ──────────────────────────────────────────────────────────────── -->
+<section class="relative overflow-hidden bg-slate-900 bg-grid min-h-screen flex items-center">
+  <!-- Glows -->
+  <div class="absolute top-0 right-0 w-[600px] h-[600px] bg-amber-500/8 rounded-full blur-3xl pointer-events-none"></div>
+  <div class="absolute bottom-0 left-0 w-[400px] h-[400px] bg-amber-500/5 rounded-full blur-3xl pointer-events-none"></div>
+  <div class="absolute inset-0 bg-gradient-to-b from-slate-900/0 via-slate-900/0 to-slate-900 pointer-events-none"></div>
+
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 lg:py-28 w-full">
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+
+      <!-- Left: copy -->
+      <div>
+        <!-- Badge -->
+        <div class="fade-up inline-flex items-center gap-2 bg-slate-800 border border-slate-700 rounded-full px-3 py-1.5 mb-7">
+          <span class="w-2 h-2 bg-amber-500 rounded-full shrink-0"></span>
+          <span class="text-slate-300 text-xs font-medium">Purpose-built for freight dispatchers</span>
+        </div>
+
+        <!-- H1 -->
+        <h1 class="heading fade-up delay-1 text-4xl sm:text-5xl lg:text-[3.4rem] font-extrabold leading-[1.12] tracking-tight text-white mb-6">
+          Every Trip.<br>
+          Every Rupee.<br>
+          <span class="text-amber-400">Accounted For.</span>
+        </h1>
+
+        <!-- Sub -->
+        <p class="fade-up delay-2 text-slate-400 text-lg leading-relaxed max-w-lg mb-8">
+          RouteBook is the daily ledger built for trucking dispatchers. Log trip income, diesel, tolls, driver cash, client payments — and see your profit before the day ends.
+        </p>
+
+        <!-- CTAs -->
+        <div class="fade-up delay-3 flex flex-wrap gap-3 mb-10">
+          <a href="/login"
+            class="heading bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-slate-900 font-bold text-base px-6 py-3 rounded-xl transition-colors inline-flex items-center gap-2">
+            Get Started
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"/>
+            </svg>
+          </a>
+          <a href="#features"
+            class="border border-slate-700 hover:border-slate-500 text-slate-300 hover:text-white font-medium text-base px-6 py-3 rounded-xl transition-colors">
+            See Features
+          </a>
+        </div>
+
+        <!-- Trust bullets -->
+        <div class="flex flex-wrap gap-5">
+          <div class="flex items-center gap-2">
+            <svg class="w-4 h-4 text-amber-500 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd"/>
+            </svg>
+            <span class="text-slate-400 text-sm">No accounting background needed</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <svg class="w-4 h-4 text-amber-500 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd"/>
+            </svg>
+            <span class="text-slate-400 text-sm">English &amp; Urdu supported</span>
+          </div>
+          <div class="flex items-center gap-2">
+            <svg class="w-4 h-4 text-amber-500 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd"/>
+            </svg>
+            <span class="text-slate-400 text-sm">Works on phone &amp; desktop</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: UI mockup card -->
+      <div class="hidden lg:flex flex-col gap-3">
+        <!-- Main entry card -->
+        <div class="bg-slate-800 border border-slate-700 rounded-2xl p-5 shadow-2xl amber-glow">
+          <div class="flex items-center justify-between mb-4">
+            <div>
+              <div class="text-xs text-slate-500 uppercase tracking-wide font-semibold mb-0.5">Daily Entry</div>
+              <div class="heading font-semibold text-white text-sm">4 June 2026 &mdash; Nazir</div>
+            </div>
+            <span class="bg-green-500/15 text-green-400 text-xs font-bold px-2.5 py-1 rounded-full border border-green-500/20">Saved</span>
+          </div>
+          <!-- Trip row -->
+          <div class="bg-slate-900 rounded-xl p-3.5 mb-3 border border-slate-700/60">
+            <div class="flex justify-between items-start mb-2.5">
+              <div>
+                <div class="text-xs text-slate-500 mb-0.5">Trip 1 · Sohrab Goth Stock</div>
+                <div class="text-sm font-medium text-slate-200">Abdul Rahim &amp; Co.</div>
+              </div>
+              <div class="text-right">
+                <div class="text-xs text-slate-500 mb-0.5">Income</div>
+                <div class="heading text-sm font-bold text-green-400">Rs. 18,500</div>
+              </div>
+            </div>
+            <div class="space-y-1.5 pt-2.5 border-t border-slate-700/60">
+              <div class="flex justify-between text-xs"><span class="text-slate-500">Jhampir Dhakka Loading</span><span class="text-red-400 tabular-nums">− 4,200</span></div>
+              <div class="flex justify-between text-xs"><span class="text-slate-500">Royalty</span><span class="text-red-400 tabular-nums">− 800</span></div>
+              <div class="flex justify-between text-xs"><span class="text-slate-500">Toll Plaza</span><span class="text-red-400 tabular-nums">− 350</span></div>
+            </div>
+          </div>
+          <!-- Summary chips -->
+          <div class="grid grid-cols-3 gap-2">
+            <div class="bg-green-500/10 border border-green-500/15 rounded-lg p-2.5 text-center">
+              <div class="text-xs text-slate-400 mb-1">Income</div>
+              <div class="heading text-sm font-bold text-green-400">18,500</div>
+            </div>
+            <div class="bg-red-500/10 border border-red-500/15 rounded-lg p-2.5 text-center">
+              <div class="text-xs text-slate-400 mb-1">Expenses</div>
+              <div class="heading text-sm font-bold text-red-400">5,350</div>
+            </div>
+            <div class="bg-amber-500/10 border border-amber-500/15 rounded-lg p-2.5 text-center">
+              <div class="text-xs text-slate-400 mb-1">Profit</div>
+              <div class="heading text-sm font-bold text-amber-400">13,150</div>
+            </div>
+          </div>
+        </div>
+        <!-- Invoice toast -->
+        <div class="self-end w-72 bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 flex items-center gap-3 shadow-xl">
+          <div class="w-8 h-8 bg-purple-500/20 border border-purple-500/25 rounded-lg flex items-center justify-center shrink-0">
+            <svg class="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/>
+            </svg>
+          </div>
+          <div>
+            <div class="text-xs font-semibold text-white">Invoice INV-4821 ready</div>
+            <div class="text-xs text-slate-400 mt-0.5">Bulk Cargo Ltd. · Rs. 87,000</div>
+          </div>
+          <svg class="w-4 h-4 text-green-400 ml-auto shrink-0" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd"/>
+          </svg>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ─── STATS BAR ─────────────────────────────────────────────────────────── -->
+<div class="bg-slate-950 border-y border-slate-800">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
+      <div>
+        <div class="heading text-2xl sm:text-3xl font-bold text-amber-400 tabular-nums">10+</div>
+        <div class="text-slate-400 text-sm mt-1.5">Transaction types tracked</div>
+      </div>
+      <div>
+        <div class="heading text-2xl sm:text-3xl font-bold text-amber-400">3 modes</div>
+        <div class="text-slate-400 text-sm mt-1.5">Cash · Credit · Partial</div>
+      </div>
+      <div>
+        <div class="heading text-2xl sm:text-3xl font-bold text-amber-400">1-click</div>
+        <div class="text-slate-400 text-sm mt-1.5">Clean PDF invoice export</div>
+      </div>
+      <div>
+        <div class="heading text-2xl sm:text-3xl font-bold text-amber-400">2 langs</div>
+        <div class="text-slate-400 text-sm mt-1.5">English &amp; Urdu</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ─── WHO IT'S FOR ──────────────────────────────────────────────────────── -->
+<section id="for-who" class="py-20 bg-slate-900">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="text-center mb-12">
+      <div class="inline-block text-amber-500 text-xs font-bold uppercase tracking-widest mb-3">Who It's For</div>
+      <h2 class="heading text-3xl sm:text-4xl font-bold text-white">Built for How Freight Actually Works</h2>
+      <p class="text-slate-400 mt-4 max-w-xl mx-auto leading-relaxed">Not a generic spreadsheet. Not a corporate ERP. RouteBook is designed around the daily reality of running trucks in Pakistan.</p>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+
+      <div class="bg-slate-800 border border-slate-700/60 rounded-2xl p-6 feature-card">
+        <div class="w-11 h-11 bg-amber-500/15 border border-amber-500/20 rounded-xl flex items-center justify-center mb-4">
+          <svg class="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 18.75a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h6m-9 0H3.375a1.125 1.125 0 01-1.125-1.125V14.25m17.25 4.5a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m3 0h1.125c.621 0 1.129-.504 1.09-1.124a17.902 17.902 0 00-3.213-9.193 2.056 2.056 0 00-1.58-.86H14.25M16.5 18.75h-2.25m0-11.177v-.958c0-.568-.422-1.048-.987-1.106a48.554 48.554 0 00-10.026 0 1.106 1.106 0 00-.987 1.106v7.635m12-6.677v6.677m0 4.5v-4.5m0 0h-12"/>
+          </svg>
+        </div>
+        <h3 class="heading font-semibold text-white text-base mb-2">Freight Dispatchers</h3>
+        <p class="text-slate-400 text-sm leading-relaxed">You run 2–5 trips daily per driver. RouteBook lets you log each trip's income, fuel, tolls, and commission in under a minute — and shows total profit before the driver returns.</p>
+      </div>
+
+      <div class="bg-slate-800 border border-slate-700/60 rounded-2xl p-6 feature-card">
+        <div class="w-11 h-11 bg-amber-500/15 border border-amber-500/20 rounded-xl flex items-center justify-center mb-4">
+          <svg class="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z"/>
+          </svg>
+        </div>
+        <h3 class="heading font-semibold text-white text-base mb-2">Business Owners</h3>
+        <p class="text-slate-400 text-sm leading-relaxed">Own one truck or twenty. RouteBook shows your daily and monthly P&amp;L at a glance. Know exactly which clients owe you, which vendors were paid, and how much cash each driver is holding.</p>
+      </div>
+
+      <div class="bg-slate-800 border border-slate-700/60 rounded-2xl p-6 feature-card">
+        <div class="w-11 h-11 bg-amber-500/15 border border-amber-500/20 rounded-xl flex items-center justify-center mb-4">
+          <svg class="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"/>
+          </svg>
+        </div>
+        <h3 class="heading font-semibold text-white text-base mb-2">Office Teams</h3>
+        <p class="text-slate-400 text-sm leading-relaxed">Give staff Editor access to enter daily trips, while you keep Admin control. Invite via email or create username + password accounts directly — no IT required.</p>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ─── FEATURES GRID ─────────────────────────────────────────────────────── -->
+<section id="features" class="py-20 bg-slate-950">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="text-center mb-14">
+      <div class="inline-block text-amber-500 text-xs font-bold uppercase tracking-widest mb-3">Features</div>
+      <h2 class="heading text-3xl sm:text-4xl font-bold text-white">Everything a Freight Business Needs</h2>
+      <p class="text-slate-400 mt-4 max-w-xl mx-auto leading-relaxed">From the first trip of the day to the monthly profit report — every tool is already here.</p>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+
+      <!-- Wide card: Daily Entry -->
+      <div class="md:col-span-2 bg-slate-800 border border-slate-700/60 rounded-2xl p-6 feature-card">
+        <div class="flex items-start gap-4">
+          <div class="w-11 h-11 bg-blue-500/15 border border-blue-500/20 rounded-xl flex items-center justify-center shrink-0 mt-0.5">
+            <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 7.5h1.5m-1.5 3h1.5m-7.5 3h7.5m-7.5 3h7.5m3-9h3.375c.621 0 1.125.504 1.125 1.125V18a2.25 2.25 0 01-2.25 2.25M16.5 7.5V18a2.25 2.25 0 002.25 2.25M16.5 7.5V4.875c0-.621-.504-1.125-1.125-1.125H4.125C3.504 3.75 3 4.254 3 4.875V18a2.25 2.25 0 002.25 2.25h13.5M6 7.5h3v3H6V7.5z"/>
+            </svg>
+          </div>
+          <div>
+            <h3 class="heading font-semibold text-white text-base mb-1.5">Daily Entry Form</h3>
+            <p class="text-slate-400 text-sm leading-relaxed">Log every driver's day in one structured form — multiple trips, trip income, per-trip expenses (diesel, royalty, commission, toll plaza), payment mode (cash / credit / partial), driver advance, company expenses, and misc expenses. The live summary updates as you type.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- CF Pricing -->
+      <div class="bg-slate-800 border border-slate-700/60 rounded-2xl p-6 feature-card">
+        <div class="w-11 h-11 bg-sky-500/15 border border-sky-500/20 rounded-xl flex items-center justify-center mb-4">
+          <svg class="w-5 h-5 text-sky-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 15.75V18m-7.5-6.75h.008v.008H8.25v-.008zm0 2.25h.008v.008H8.25V13.5zm0 2.25h.008v.008H8.25v-.008zm0 2.25h.008v.008H8.25V18zm2.498-6.75h.007v.008h-.007v-.008zm0 2.25h.007v.008h-.007V13.5zm0 2.25h.007v.008h-.007v-.008zm0 2.25h.007v.008h-.007V18zm2.504-6.75h.008v.008h-.008v-.008zm0 2.25h.008v.008h-.008V13.5zm0 2.25h.008v.008h-.008v-.008zm0 2.25h.008v.008h-.008V18zm2.498-6.75h.008v.008h-.008v-.008zm0 2.25h.008v.008h-.008V13.5zM8.25 6h7.5v2.25h-7.5V6zM12 2.25c-1.892 0-3.758.11-5.593.322C5.307 2.7 4.5 3.65 4.5 4.757V19.5a2.25 2.25 0 002.25 2.25h10.5a2.25 2.25 0 002.25-2.25V4.757c0-1.108-.806-2.057-1.907-2.185A48.507 48.507 0 0012 2.25z"/>
+          </svg>
+        </div>
+        <h3 class="heading font-semibold text-white text-base mb-2">CF Pricing Calculator</h3>
+        <p class="text-slate-400 text-sm leading-relaxed">Toggle the CF button on any income or expense field. Enter Price/CF and Total CF — the amount calculates instantly. Works on both trip income and individual expenses.</p>
+      </div>
+
+      <!-- Driver Cash -->
+      <div class="bg-slate-800 border border-slate-700/60 rounded-2xl p-6 feature-card">
+        <div class="w-11 h-11 bg-green-500/15 border border-green-500/20 rounded-xl flex items-center justify-center mb-4">
+          <svg class="w-5 h-5 text-green-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75M15 10.5a3 3 0 11-6 0 3 3 0 016 0zm3 0h.008v.008H18V10.5zm-12 0h.008v.008H6V10.5z"/>
+          </svg>
+        </div>
+        <h3 class="heading font-semibold text-white text-base mb-2">Driver Cash Balance</h3>
+        <p class="text-slate-400 text-sm leading-relaxed">Previous cash carries forward automatically. Log advances, cash collected from clients, and transfers between drivers. Always know who holds how much.</p>
+      </div>
+
+      <!-- Invoice Generator -->
+      <div class="bg-slate-800 border border-slate-700/60 rounded-2xl p-6 feature-card">
+        <div class="w-11 h-11 bg-purple-500/15 border border-purple-500/20 rounded-xl flex items-center justify-center mb-4">
+          <svg class="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/>
+          </svg>
+        </div>
+        <h3 class="heading font-semibold text-white text-base mb-2">Invoice Generator</h3>
+        <p class="text-slate-400 text-sm leading-relaxed">Create professional invoices with your logo, BOM table, and tax. Export a clean A4 PDF — no browser headers, no print dialog. Saved as the invoice number.</p>
+      </div>
+
+      <!-- Wide card: Dashboard -->
+      <div class="md:col-span-2 bg-slate-800 border border-slate-700/60 rounded-2xl p-6 feature-card">
+        <div class="flex items-start gap-4">
+          <div class="w-11 h-11 bg-amber-500/15 border border-amber-500/20 rounded-xl flex items-center justify-center shrink-0 mt-0.5">
+            <svg class="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z"/>
+            </svg>
+          </div>
+          <div>
+            <h3 class="heading font-semibold text-white text-base mb-1.5">Monthly Dashboard &amp; Analytics</h3>
+            <p class="text-slate-400 text-sm leading-relaxed">See your entire month in one view — total income, expenses, and profit in visual charts. Break down by client or driver. Export everything to Excel for your accountant with one click. Browse any past day in Daily View with full trip detail.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Client / Vendor Payments -->
+      <div class="bg-slate-800 border border-slate-700/60 rounded-2xl p-6 feature-card">
+        <div class="w-11 h-11 bg-orange-500/15 border border-orange-500/20 rounded-xl flex items-center justify-center mb-4">
+          <svg class="w-5 h-5 text-orange-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-3-2.818l.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+        </div>
+        <h3 class="heading font-semibold text-white text-base mb-2">Client &amp; Vendor Payments</h3>
+        <p class="text-slate-400 text-sm leading-relaxed">Record payments received from clients and payments made to vendors — separate from trip income. Cash and credit tracked independently.</p>
+      </div>
+
+      <!-- Role-Based Access -->
+      <div class="bg-slate-800 border border-slate-700/60 rounded-2xl p-6 feature-card">
+        <div class="w-11 h-11 bg-red-500/15 border border-red-500/20 rounded-xl flex items-center justify-center mb-4">
+          <svg class="w-5 h-5 text-red-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"/>
+          </svg>
+        </div>
+        <h3 class="heading font-semibold text-white text-base mb-2">Role-Based Access</h3>
+        <p class="text-slate-400 text-sm leading-relaxed">Admin sees P&amp;L, dashboard, invoices, and settings. Editor enters daily trips only. Create accounts with username + password — no email required.</p>
+      </div>
+
+      <!-- Business Settings -->
+      <div class="bg-slate-800 border border-slate-700/60 rounded-2xl p-6 feature-card">
+        <div class="w-11 h-11 bg-teal-500/15 border border-teal-500/20 rounded-xl flex items-center justify-center mb-4">
+          <svg class="w-5 h-5 text-teal-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z"/>
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+          </svg>
+        </div>
+        <h3 class="heading font-semibold text-white text-base mb-2">Business Settings</h3>
+        <p class="text-slate-400 text-sm leading-relaxed">Upload your logo, set address and phone. These appear on every invoice automatically. Manage team members and change business name anytime.</p>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ─── HOW IT WORKS ──────────────────────────────────────────────────────── -->
+<section id="how-it-works" class="py-20 bg-slate-900">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="text-center mb-14">
+      <div class="inline-block text-amber-500 text-xs font-bold uppercase tracking-widest mb-3">How It Works</div>
+      <h2 class="heading text-3xl sm:text-4xl font-bold text-white">One Day in RouteBook</h2>
+      <p class="text-slate-400 mt-4 max-w-lg mx-auto leading-relaxed">Your daily workflow, from first trip to final tally — done in minutes.</p>
+    </div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 lg:gap-4">
+
+      <div class="relative text-center lg:text-left">
+        <div class="flex justify-center lg:justify-start">
+          <div class="heading w-12 h-12 bg-amber-500 text-slate-900 rounded-xl flex items-center justify-center font-bold text-lg mb-4 shrink-0">1</div>
+        </div>
+        <h3 class="heading font-semibold text-white mb-2">Open New Entry</h3>
+        <p class="text-slate-400 text-sm leading-relaxed">Pick the driver and date. Previous cash balance loads automatically — nothing to calculate.</p>
+        <div class="hidden lg:block step-connector"></div>
+      </div>
+
+      <div class="relative text-center lg:text-left">
+        <div class="flex justify-center lg:justify-start">
+          <div class="heading w-12 h-12 bg-amber-500 text-slate-900 rounded-xl flex items-center justify-center font-bold text-lg mb-4 shrink-0">2</div>
+        </div>
+        <h3 class="heading font-semibold text-white mb-2">Log Trips &amp; Expenses</h3>
+        <p class="text-slate-400 text-sm leading-relaxed">Add each trip: destination, client, income, payment mode. Attach every expense — diesel, royalty, toll, commission. Use CF toggle for cubic feet pricing.</p>
+        <div class="hidden lg:block step-connector"></div>
+      </div>
+
+      <div class="relative text-center lg:text-left">
+        <div class="flex justify-center lg:justify-start">
+          <div class="heading w-12 h-12 bg-amber-500 text-slate-900 rounded-xl flex items-center justify-center font-bold text-lg mb-4 shrink-0">3</div>
+        </div>
+        <h3 class="heading font-semibold text-white mb-2">See Profit Instantly</h3>
+        <p class="text-slate-400 text-sm leading-relaxed">The summary panel updates live as you type. Income, expenses, profit, and driver's remaining cash — always visible, always current.</p>
+        <div class="hidden lg:block step-connector"></div>
+      </div>
+
+      <div class="text-center lg:text-left">
+        <div class="flex justify-center lg:justify-start">
+          <div class="heading w-12 h-12 bg-amber-500 text-slate-900 rounded-xl flex items-center justify-center font-bold text-lg mb-4 shrink-0">4</div>
+        </div>
+        <h3 class="heading font-semibold text-white mb-2">Save &amp; Review</h3>
+        <p class="text-slate-400 text-sm leading-relaxed">Save the entry. Browse any past day in Daily View. Pull up the full month in Dashboard. Generate an invoice when the client needs one.</p>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ─── FEATURE DEEP DIVE ─────────────────────────────────────────────────── -->
+<section class="py-20 bg-slate-950">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-24">
+
+    <!-- Deep dive 1: Trip expenses visual -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+      <div>
+        <div class="inline-block text-sky-400 text-xs font-bold uppercase tracking-widest mb-3">Trip Ledger</div>
+        <h2 class="heading text-2xl sm:text-3xl font-bold text-white mb-4 leading-tight">Every Expense, Every Trip.<br>Nothing Slips Through.</h2>
+        <p class="text-slate-400 leading-relaxed mb-6">Most freight businesses still run on paper or WhatsApp voice notes. RouteBook gives you a structured form where each trip has its own income and expense section — every line item is named, categorised, and totalled instantly.</p>
+        <ul class="space-y-3">
+          <li class="flex items-start gap-3"><svg class="w-5 h-5 text-amber-500 mt-0.5 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd"/></svg><span class="text-slate-300 text-sm">Cash and credit expenses tracked separately per trip</span></li>
+          <li class="flex items-start gap-3"><svg class="w-5 h-5 text-amber-500 mt-0.5 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd"/></svg><span class="text-slate-300 text-sm">Vendor name recorded per credit expense line</span></li>
+          <li class="flex items-start gap-3"><svg class="w-5 h-5 text-amber-500 mt-0.5 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd"/></svg><span class="text-slate-300 text-sm">Company and miscellaneous expenses separate from trip costs</span></li>
+          <li class="flex items-start gap-3"><svg class="w-5 h-5 text-amber-500 mt-0.5 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd"/></svg><span class="text-slate-300 text-sm">Partial payments: track exactly how much cash the driver collected</span></li>
+        </ul>
+      </div>
+      <!-- Expense rows mock -->
+      <div class="bg-slate-800 border border-slate-700 rounded-2xl p-5 shadow-2xl">
+        <div class="text-xs text-slate-500 uppercase tracking-wide font-semibold mb-3">Trip 1 Expenses</div>
+        <div class="space-y-2 mb-3">
+          <div class="flex items-center gap-3 bg-slate-900 rounded-xl px-3.5 py-2.5">
+            <span class="flex-1 text-sm text-slate-200">Jhampir Dhakka Loading</span>
+            <span class="heading text-sm font-semibold text-red-400 tabular-nums">4,200</span>
+            <span class="text-xs bg-slate-800 border border-slate-700 text-slate-400 px-2 py-0.5 rounded-md">Cash</span>
+          </div>
+          <div class="flex items-center gap-3 bg-slate-900 rounded-xl px-3.5 py-2.5">
+            <span class="flex-1 text-sm text-slate-200">Royalty</span>
+            <span class="heading text-sm font-semibold text-red-400 tabular-nums">800</span>
+            <span class="text-xs bg-slate-800 border border-slate-700 text-slate-400 px-2 py-0.5 rounded-md">Cash</span>
+          </div>
+          <div class="flex items-center gap-3 bg-slate-900 rounded-xl px-3.5 py-2.5">
+            <span class="flex-1 text-sm text-slate-200">Driver Trip Commission</span>
+            <span class="heading text-sm font-semibold text-amber-400 tabular-nums">1,200</span>
+            <span class="text-xs bg-amber-900/30 border border-amber-700/40 text-amber-400 px-2 py-0.5 rounded-md">Credit</span>
+          </div>
+          <div class="flex items-center gap-3 bg-slate-900 rounded-xl px-3.5 py-2.5">
+            <span class="flex-1 text-sm text-slate-200">Toll Plaza</span>
+            <span class="heading text-sm font-semibold text-red-400 tabular-nums">350</span>
+            <span class="text-xs bg-slate-800 border border-slate-700 text-slate-400 px-2 py-0.5 rounded-md">Cash</span>
+          </div>
+          <div class="flex items-center justify-center gap-2 border border-dashed border-slate-700 rounded-xl px-3.5 py-2 text-blue-400 text-xs font-medium hover:border-blue-500/40 transition-colors cursor-default">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+            Add expense line
+          </div>
+        </div>
+        <div class="flex justify-between items-center pt-3 border-t border-slate-700">
+          <span class="text-slate-400 text-sm">Trip Expenses Total</span>
+          <span class="heading font-bold text-red-400 tabular-nums">Rs. 6,550</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Deep dive 2: Invoice preview -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+      <!-- Invoice visual (left on desktop) -->
+      <div class="order-2 lg:order-1">
+        <div class="bg-slate-800 border border-slate-700 rounded-2xl p-4 shadow-2xl">
+          <!-- White invoice inner -->
+          <div class="bg-white rounded-xl p-5 text-slate-900 text-xs">
+            <div class="flex justify-between items-start mb-3.5">
+              <div>
+                <div class="heading font-bold text-sm text-slate-800">AlAwal Transit</div>
+                <div class="text-slate-400 mt-0.5">Karachi, Pakistan · +92 300 0000000</div>
+              </div>
+              <div class="text-right">
+                <div class="heading text-xl font-extrabold text-amber-600 tracking-wide">INVOICE</div>
+                <div class="text-slate-400 mt-0.5">INV-4821 · 04 Jun 2026</div>
+              </div>
+            </div>
+            <div class="h-px bg-amber-400 mb-3"></div>
+            <div class="mb-3">
+              <div class="text-slate-400 uppercase text-xs tracking-widest mb-1">Bill To</div>
+              <div class="heading font-bold text-sm text-slate-800">Bulk Cargo Trading Ltd.</div>
+              <div class="text-slate-400">Lahore, Punjab</div>
+            </div>
+            <table class="w-full mb-3 border-collapse">
+              <thead>
+                <tr class="bg-slate-800 text-white">
+                  <th class="text-left px-2 py-2 rounded-tl font-semibold">Description</th>
+                  <th class="text-center px-2 py-2 font-semibold">Qty</th>
+                  <th class="text-right px-2 py-2 rounded-tr font-semibold">Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr class="bg-white">
+                  <td class="px-2 py-1.5 text-slate-700">Cargo Transport — Karachi–Hub</td>
+                  <td class="text-center px-2 py-1.5 text-slate-500">4</td>
+                  <td class="text-right px-2 py-1.5 font-semibold tabular-nums">Rs. 72,000</td>
+                </tr>
+                <tr class="bg-slate-50">
+                  <td class="px-2 py-1.5 text-slate-700">Loading &amp; handling charges</td>
+                  <td class="text-center px-2 py-1.5 text-slate-500">4</td>
+                  <td class="text-right px-2 py-1.5 font-semibold tabular-nums">Rs. 6,000</td>
+                </tr>
+              </tbody>
+            </table>
+            <div class="flex justify-end mb-3">
+              <div class="w-44 space-y-1.5">
+                <div class="flex justify-between text-slate-500"><span>Subtotal</span><span class="tabular-nums">Rs. 78,000</span></div>
+                <div class="flex justify-between font-bold text-slate-900 pt-1.5 border-t border-slate-200">
+                  <span>TOTAL</span><span class="text-amber-600 tabular-nums">Rs. 78,000</span>
+                </div>
+              </div>
+            </div>
+            <div class="pt-2 border-t border-slate-100 text-center text-slate-400">Invoice generated using RouteBook by Peartech Solutions</div>
+          </div>
+        </div>
+      </div>
+      <!-- Copy (right on desktop) -->
+      <div class="order-1 lg:order-2">
+        <div class="inline-block text-purple-400 text-xs font-bold uppercase tracking-widest mb-3">Invoice Generator</div>
+        <h2 class="heading text-2xl sm:text-3xl font-bold text-white mb-4 leading-tight">Professional Invoices.<br>Clean PDF. One Click.</h2>
+        <p class="text-slate-400 leading-relaxed mb-6">Stop sending WhatsApp screenshots. RouteBook generates a proper branded invoice with your logo, address, itemised BOM, and tax. Exported as a real PDF — no browser chrome, no print headers. File is named after the invoice number automatically.</p>
+        <ul class="space-y-3">
+          <li class="flex items-start gap-3"><svg class="w-5 h-5 text-amber-500 mt-0.5 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd"/></svg><span class="text-slate-300 text-sm">Business logo pulled from Settings automatically</span></li>
+          <li class="flex items-start gap-3"><svg class="w-5 h-5 text-amber-500 mt-0.5 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd"/></svg><span class="text-slate-300 text-sm">Tax percentage, due date, and notes supported</span></li>
+          <li class="flex items-start gap-3"><svg class="w-5 h-5 text-amber-500 mt-0.5 shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clip-rule="evenodd"/></svg><span class="text-slate-300 text-sm">Saved as INV-0001.pdf — no rename needed</span></li>
+        </ul>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ─── FINAL CTA ─────────────────────────────────────────────────────────── -->
+<section class="relative py-28 bg-slate-900 overflow-hidden">
+  <div class="absolute inset-0 bg-grid opacity-60 pointer-events-none"></div>
+  <div class="absolute inset-0 pointer-events-none">
+    <div class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-amber-500/8 rounded-full blur-3xl"></div>
+  </div>
+  <div class="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative">
+    <div class="inline-flex items-center gap-2 bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-bold uppercase tracking-widest px-3 py-1.5 rounded-full mb-6">
+      <span class="w-1.5 h-1.5 bg-amber-400 rounded-full"></span>
+      Start Today
+    </div>
+    <h2 class="heading text-3xl sm:text-4xl lg:text-5xl font-extrabold text-white mb-5 leading-tight tracking-tight">
+      Stop guessing.<br>
+      <span class="text-amber-400">Start knowing.</span>
+    </h2>
+    <p class="text-slate-400 text-lg leading-relaxed mb-8">
+      RouteBook gives every freight dispatcher the clarity to know exactly where their money is — at the end of every single day.
+    </p>
+    <div class="flex flex-col sm:flex-row gap-3 justify-center">
+      <a href="/login"
+        class="heading bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-slate-900 font-bold text-base px-8 py-3.5 rounded-xl transition-colors inline-flex items-center justify-center gap-2">
+        Get Started
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"/>
+        </svg>
+      </a>
+      <a href="/login"
+        class="border border-slate-700 hover:border-slate-500 text-slate-300 hover:text-white font-medium text-base px-8 py-3.5 rounded-xl transition-colors inline-flex items-center justify-center">
+        Sign In to Existing Account
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- ─── FOOTER ────────────────────────────────────────────────────────────── -->
+<footer class="bg-slate-950 border-t border-slate-800 py-10">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row items-center justify-between gap-4">
+    <div class="flex items-center gap-2.5">
+      <img src="AlawalTransit Logo.png" alt="RouteBook" class="w-7 h-7 rounded-full object-cover">
+      <span class="heading font-bold text-white">RouteBook</span>
+      <span class="text-slate-600 text-sm">Daily Ledger</span>
+    </div>
+    <p class="text-slate-500 text-sm">
+      Built by <span class="text-slate-400 font-medium">Peartech Solutions</span> for AlAwal Transit
+    </p>
+  </div>
+</footer>
+
+</body>
+</html>

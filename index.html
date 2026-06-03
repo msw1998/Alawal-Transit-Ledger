@@ -89,7 +89,7 @@ body.lang-ur .ltr { direction: ltr; unicode-bidi: embed; }
     <button onclick="FS=blankFS();showView('entry')" data-view="entry" class="nav-btn px-4 py-2 rounded-lg text-sm font-medium text-slate-300 hover:bg-slate-700 transition-colors" data-i18n="nav.new_entry">+ New Entry</button>
     <button onclick="showView('daily')" data-view="daily" class="nav-btn admin-only-tab px-4 py-2 rounded-lg text-sm font-medium text-slate-300 hover:bg-slate-700 transition-colors" data-i18n="nav.daily">Daily View</button>
     <button onclick="showView('monthly')" data-view="monthly" class="nav-btn admin-only-tab px-4 py-2 rounded-lg text-sm font-medium text-slate-300 hover:bg-slate-700 transition-colors" data-i18n="nav.dashboard">Dashboard</button>
-    <a href="/invoice.html" class="px-4 py-2 rounded-lg text-sm font-medium text-slate-300 hover:bg-slate-700 transition-colors">📄 Invoice</a>
+    <a href="/invoice" class="px-4 py-2 rounded-lg text-sm font-medium text-slate-300 hover:bg-slate-700 transition-colors">📄 Invoice</a>
     <div class="w-px h-5 bg-slate-600 mx-1"></div>
     <span class="sync-status text-xs font-medium text-slate-400 min-w-16 text-right"></span>
     <div class="w-px h-5 bg-slate-600 mx-1"></div>
@@ -105,8 +105,8 @@ body.lang-ur .ltr { direction: ltr; unicode-bidi: embed; }
       </button>
       <div id="user-menu-dropdown" class="hidden absolute right-0 top-11 bg-white rounded-xl shadow-2xl border border-gray-100 py-1.5 w-52 z-50 text-gray-800">
         <div class="px-4 py-2 text-xs text-gray-400 truncate border-b border-gray-100 mb-1" id="user-menu-email">…</div>
-        <a href="/settings.html" id="settings-link" class="admin-only-tab block px-4 py-2 text-sm hover:bg-gray-50">⚙ Settings</a>
-        <a href="/superadmin.html" id="sa-link" class="hidden block px-4 py-2 text-sm text-purple-600 hover:bg-gray-50" data-i18n="nav.superadmin">⚡ Superadmin Panel</a>
+        <a href="/settings" id="settings-link" class="admin-only-tab block px-4 py-2 text-sm hover:bg-gray-50">⚙ Settings</a>
+        <a href="/superadmin" id="sa-link" class="hidden block px-4 py-2 text-sm text-purple-600 hover:bg-gray-50" data-i18n="nav.superadmin">⚡ Superadmin Panel</a>
         <div class="border-t border-gray-100 mt-1"></div>
         <button onclick="toggleLang()" class="w-full text-left px-4 py-2 text-sm hover:bg-gray-50 text-blue-600"><span data-i18n="lang.toggle">اردو</span></button>
         <button onclick="logout()" class="w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-gray-50" data-i18n="nav.sign_out">→ Sign Out</button>
@@ -125,8 +125,8 @@ body.lang-ur .ltr { direction: ltr; unicode-bidi: embed; }
     <div class="px-4 py-2 text-xs text-gray-400 truncate border-b border-gray-100 mb-1 mobile-email-el">…</div>
     <div class="px-4 py-2 text-sm font-semibold org-name-el text-amber-600">…</div>
     <div class="border-t border-gray-100 mt-1"></div>
-    <a href="/settings.html" class="admin-only-tab block px-4 py-2 text-sm hover:bg-gray-50">⚙ Settings</a>
-    <a href="/superadmin.html" id="sa-link-mobile" class="hidden block px-4 py-2 text-sm text-purple-600 hover:bg-gray-50" data-i18n="nav.superadmin">⚡ Superadmin Panel</a>
+    <a href="/settings" class="admin-only-tab block px-4 py-2 text-sm hover:bg-gray-50">⚙ Settings</a>
+    <a href="/superadmin" id="sa-link-mobile" class="hidden block px-4 py-2 text-sm text-purple-600 hover:bg-gray-50" data-i18n="nav.superadmin">⚡ Superadmin Panel</a>
     <div class="border-t border-gray-100 mt-1"></div>
     <button onclick="closeMobileMenu();toggleLang()" class="w-full text-left px-4 py-2 text-sm text-blue-600 hover:bg-gray-50"><span data-i18n="lang.toggle">اردو</span></button>
     <button onclick="logout()" class="w-full text-left px-4 py-2 text-sm text-red-500 hover:bg-gray-50" data-i18n="nav.sign_out">→ Sign Out</button>
@@ -152,7 +152,7 @@ body.lang-ur .ltr { direction: ltr; unicode-bidi: embed; }
     <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
     <span class="text-xs font-medium" data-i18n="tab.dashboard">Dashboard</span>
   </button>
-  <a href="/invoice.html" class="tab-btn flex-1 py-3 flex flex-col items-center gap-0.5 text-slate-400 active:bg-slate-800 transition-colors">
+  <a href="/invoice" class="tab-btn flex-1 py-3 flex flex-col items-center gap-0.5 text-slate-400 active:bg-slate-800 transition-colors">
     <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
     <span class="text-xs font-medium">Invoice</span>
   </a>
@@ -295,7 +295,7 @@ async function initAuth() {
 
   const { data: { session } } = await _sb.auth.getSession();
   if (!session) {
-    window.location.href = '/login.html';
+    window.location.href = '/login';
     return false;  // loader stays until navigation completes
   }
 
@@ -307,7 +307,7 @@ async function initAuth() {
 
   // Auto-refresh token
   _sb.auth.onAuthStateChange((event, s) => {
-    if (event === 'SIGNED_OUT') { window.location.href = '/login.html'; return; }
+    if (event === 'SIGNED_OUT') { window.location.href = '/login'; return; }
     if (s) { _jwtToken = s.access_token; currentUser = s.user; }
   });
 
@@ -319,9 +319,9 @@ async function initAuth() {
     const ref = document.referrer;
     const fromSignup = ref.includes('/signup') || ref === '';
     if (fromSignup) {
-      window.location.href = '/signup.html';
+      window.location.href = '/signup';
     } else {
-      document.body.innerHTML = '<div class="min-h-screen flex items-center justify-center bg-slate-900"><div class="bg-white rounded-2xl shadow-2xl p-8 max-w-sm w-full text-center"><div class="text-4xl mb-4">⚠️</div><div class="font-bold text-gray-800 mb-2">No organization found</div><div class="text-gray-500 text-sm mb-6">Your account is not connected to any business. Please contact the person who invited you.</div><a href="/login.html" class="text-amber-600 text-sm font-medium hover:underline">← Back to login</a></div></div>';
+      document.body.innerHTML = '<div class="min-h-screen flex items-center justify-center bg-slate-900"><div class="bg-white rounded-2xl shadow-2xl p-8 max-w-sm w-full text-center"><div class="text-4xl mb-4">⚠️</div><div class="font-bold text-gray-800 mb-2">No organization found</div><div class="text-gray-500 text-sm mb-6">Your account is not connected to any business. Please contact the person who invited you.</div><a href="/login" class="text-amber-600 text-sm font-medium hover:underline">← Back to login</a></div></div>';
     }
     return false;
   }
@@ -471,7 +471,7 @@ async function logout() {
   // Clear all org caches for this user
   Object.keys(localStorage).filter(k => k.startsWith('alawal_cache_')).forEach(k => localStorage.removeItem(k));
   if (currentUser?.id) localStorage.removeItem(`activeOrg_${currentUser.id}`);
-  window.location.href = '/login.html';
+  window.location.href = '/login';
 }
 
 // ─── TEAM MANAGEMENT ─────────────────────────────────────────
