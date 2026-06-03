@@ -17,6 +17,7 @@
   from = "/"
   to   = "/landing.html"
   status = 200
+  force  = true   # override index.html which would otherwise take precedence
 
 [[redirects]]
   from = "/login"
