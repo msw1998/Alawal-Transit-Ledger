@@ -642,19 +642,22 @@ function calc(e) {
   const diesel        = (e.diesel||[]);
   const dieselFillExp = diesel.filter(d=>d.type!=='payment').reduce((s,d)=>s+(+d.amt||0),0);
   const dieselDrvCash = diesel.filter(d=>d.type==='cash_fill'||(d.type==='payment'&&d.paidBy==='driver')).reduce((s,d)=>s+(+d.amt||0),0);
-  const totalExp      = tripExp + miscExp + coExp + dieselFillExp;
-  const transferOut   = (e.driverTransfers||[]).reduce((s,x)=>s+(+x.amt||0),0);
-  const drvIn         = (+e.prevCash||0) + (+e.advance||0) + cashInc;
-  const drvRem        = drvIn - tripExpCash - miscExp - transferOut - dieselDrvCash;
-  const profit        = totalInc - totalExp;
-  return { cashInc, totalInc, tripExpCash, tripExpCredit, tripExp, miscExp, coExp, dieselFillExp, dieselDrvCash, totalExp, transferOut, drvIn, drvRem, profit };
+  const oilChange        = e.oilChange;
+  const oilChangeExp     = oilChange ? (+oilChange.amt||0) : 0;
+  const oilChangeDrvCash = (oilChange && oilChange.paidBy==='driver') ? (+oilChange.amt||0) : 0;
+  const totalExp         = tripExp + miscExp + coExp + dieselFillExp + oilChangeExp;
+  const transferOut      = (e.driverTransfers||[]).reduce((s,x)=>s+(+x.amt||0),0);
+  const drvIn            = (+e.prevCash||0) + (+e.advance||0) + cashInc;
+  const drvRem           = drvIn - tripExpCash - miscExp - transferOut - dieselDrvCash - oilChangeDrvCash;
+  const profit           = totalInc - totalExp;
+  return { cashInc, totalInc, tripExpCash, tripExpCredit, tripExp, miscExp, coExp, dieselFillExp, dieselDrvCash, oilChangeExp, oilChangeDrvCash, totalExp, transferOut, drvIn, drvRem, profit };
 }
 
 // ─── FORM STATE ─────────────────────────────────────────────
 let FS = null;
 
 function blankFS() {
-  return { id:null, date:new Date().toISOString().slice(0,10), driver:'', prevCash:0, advance:0, trips:[], misc:[], coexp:[], clientPayments:[], vendorPayments:[], driverTransfers:[], diesel:[], notes:'' };
+  return { id:null, date:new Date().toISOString().slice(0,10), driver:'', prevCash:0, advance:0, trips:[], misc:[], coexp:[], clientPayments:[], vendorPayments:[], driverTransfers:[], diesel:[], oilChange:null, notes:'' };
 }
 
 function readDOM() {
@@ -668,6 +671,7 @@ function readDOM() {
   FS.trips.forEach((t,ti)=>{
     t.dest   = (g(`t-dest-${ti}`)||{}).value||t.dest||'';
     t.cust   = (g(`t-cust-${ti}`)||{}).value||t.cust||'';
+    t.kms    = +(g(`t-kms-${ti}`)||{}).value||0;
     t.income = +(g(`t-inc-${ti}`)||{}).value||0;
     const incCfW = g(`t-inc-cf-wrap-${ti}`);
     t.incCfMode = !!(incCfW && !incCfW.classList.contains('hidden'));
@@ -724,11 +728,16 @@ function readDOM() {
     d.amt    = isPay ? +(g(`di-pay-amt-${i}`)||{}).value||0 : +(g(`di-amt-${i}`)||{}).value||0;
     if (!isPay && d.qty && d.rate) d.amt = d.qty * d.rate;
   });
+  if (FS.oilChange) {
+    FS.oilChange.amt    = +(g('oc-amt')||{}).value||0;
+    FS.oilChange.paidBy = (g('oc-pby')||{}).value||'driver';
+    FS.oilChange.vendor = (g('oc-vnd')||{}).value||'';
+  }
 }
 
 function _focus(id) { const el=document.getElementById(id); if(el){el.focus();el.scrollIntoView({block:'nearest'});} }
 
-function addTrip()    { readDOM(); FS.trips.push({id:uid(),dest:'',cust:'',income:0,incCfMode:false,incCfQty:0,incCfRate:0,pm:'cash',exp:[{desc:'Jhampir Dhakka Loading',amt:0,mode:'cash',vendor:''},{desc:'Royalty',amt:0,mode:'cash',vendor:''},{desc:'Driver Trip Commission',amt:0,mode:'cash',vendor:''},{desc:'Toll Plaza',amt:0,mode:'cash',vendor:''}]}); renderForm(); _focus('t-dest-'+(FS.trips.length-1)); }
+function addTrip()    { readDOM(); FS.trips.push({id:uid(),dest:'',cust:'',kms:0,income:0,incCfMode:false,incCfQty:0,incCfRate:0,pm:'cash',exp:[{desc:'Jhampir Dhakka Loading',amt:0,mode:'cash',vendor:''},{desc:'Royalty',amt:0,mode:'cash',vendor:''},{desc:'Driver Trip Commission',amt:0,mode:'cash',vendor:''},{desc:'Toll Plaza',amt:0,mode:'cash',vendor:''}]}); renderForm(); _focus('t-dest-'+(FS.trips.length-1)); }
 function remTrip(i)   { readDOM(); FS.trips.splice(i,1); renderForm(); }
 function addTE(ti)    { readDOM(); FS.trips[ti].exp.push({desc:'',amt:0,mode:'cash',vendor:'',cfMode:false,cfQty:0,cfRate:0}); renderForm(); _focus('t-ed-'+ti+'-'+(FS.trips[ti].exp.length-1)); }
 function remTE(ti,ei) { readDOM(); FS.trips[ti].exp.splice(ei,1); renderForm(); }
@@ -752,6 +761,12 @@ function dieselSync(i) {
   const r = +(document.getElementById(`di-rate-${i}`)||{}).value||0;
   if (q&&r) { const el=document.getElementById(`di-amt-${i}`); if(el) el.value=q*r; }
   updateSummary();
+}
+
+function toggleOilChange() {
+  readDOM();
+  FS.oilChange = FS.oilChange ? null : { amt:0, paidBy:'driver', vendor:'' };
+  renderForm();
 }
 
 function coexpSync(i) {
@@ -796,7 +811,7 @@ function updateSummary() {
   if (!el('s-inc')) return;
   el('s-inc').textContent   = Rs(c.totalInc);
   el('s-exp').textContent   = Rs(c.totalExp);
-  el('s-exp2').textContent  = `Trip Cash: ${N(c.tripExpCash)}${c.tripExpCredit?` · Credit: ${N(c.tripExpCredit)}`:''} · Misc: ${N(c.miscExp)} · Co.: ${N(c.coExp)}${c.dieselFillExp?` · Diesel: ${N(c.dieselFillExp)}`:''}`;
+  el('s-exp2').textContent  = `Trip Cash: ${N(c.tripExpCash)}${c.tripExpCredit?` · Credit: ${N(c.tripExpCredit)}`:''} · Misc: ${N(c.miscExp)} · Co.: ${N(c.coExp)}${c.dieselFillExp?` · Diesel: ${N(c.dieselFillExp)}`:''}${c.oilChangeExp?` · Oil: ${N(c.oilChangeExp)}`:''}`;
 
   el('s-prof').textContent  = Rs(c.profit);
   el('s-prof').className    = `text-xl font-bold mt-1 ${c.profit>=0?'text-blue-700':'text-red-600'}`;
@@ -939,6 +954,20 @@ function dieselVendorBalance(entries) {
   });
   Object.values(map).forEach(d => { d.net = Math.max(0, d.creditAmt - d.paid); });
   return map;
+}
+
+function kmsSinceLastOilChange() {
+  const sorted = [...appData.entries].sort((a,b) => a.date.localeCompare(b.date));
+  let lastOilDate = null;
+  for (let i = sorted.length - 1; i >= 0; i--) {
+    if (sorted[i].oilChange && +sorted[i].oilChange.amt > 0) {
+      lastOilDate = sorted[i].date;
+      break;
+    }
+  }
+  const fromEntries = lastOilDate ? sorted.filter(e => e.date > lastOilDate) : sorted;
+  const kms = fromEntries.reduce((s,e) => s + (e.trips||[]).reduce((ss,t) => ss+(+t.kms||0), 0), 0);
+  return { kms, lastOilDate };
 }
 
 function clientBalance(entries) {
@@ -1100,7 +1129,7 @@ function renderForm() {
         <span class="font-semibold text-blue-700">${t('trip.label')} ${ti+1}</span>
         <button onclick="remTrip(${ti})" class="text-red-500 text-sm px-2 py-1 rounded hover:bg-red-50">${t('btn.remove')}</button>
       </div>
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+      <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-3">
         <div>
           <label class="text-xs font-medium text-gray-500">${t('field.destination')}</label>
           <input id="t-dest-${ti}" type="text" value="${esc(trip.dest)}" placeholder="e.g. Sohrab Goth Stock" list="loc-list" class="${INP}" oninput="updateSummary()">
@@ -1108,6 +1137,10 @@ function renderForm() {
         <div>
           <label class="text-xs font-medium text-gray-500">${t('field.customer')}</label>
           <input id="t-cust-${ti}" type="text" value="${esc(trip.cust)}" placeholder="e.g. Abdul Rahim" list="cust-list" class="${INP}" oninput="updateSummary()">
+        </div>
+        <div>
+          <label class="text-xs font-medium text-gray-500">KMs</label>
+          <input id="t-kms-${ti}" type="number" inputmode="numeric" value="${trip.kms||''}" placeholder="0" class="${INP}" oninput="updateSummary()">
         </div>
       </div>
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
@@ -1280,6 +1313,39 @@ function renderForm() {
       <div id="s-diesel-tot" class="text-right mt-2 text-sm font-semibold text-emerald-700 ${(FS.diesel||[]).length?'':'hidden'}"></div>
     </div>
 
+    <div class="bg-white rounded-xl border border-orange-200 p-4 mb-4 shadow-sm">
+      <div class="flex justify-between items-center ${FS.oilChange?'mb-3':''}">
+        <div>
+          <h2 class="font-semibold text-slate-700">🔧 Oil Change</h2>
+          <p class="text-xs text-gray-400">Record if vehicle oil was changed today</p>
+        </div>
+        <button onclick="toggleOilChange()"
+          class="${FS.oilChange?'bg-orange-500 hover:bg-orange-600 text-white':'border border-orange-300 text-orange-600 hover:bg-orange-50'} px-3 py-2 rounded-lg text-sm font-medium transition-colors">
+          ${FS.oilChange?'✓ Recorded':'+ Record'}
+        </button>
+      </div>
+      ${FS.oilChange ? `
+      <div class="space-y-2">
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="text-xs text-gray-500">Amount</label>
+            <input id="oc-amt" type="number" inputmode="numeric" value="${FS.oilChange.amt||''}" placeholder="0"
+              class="${INP} bg-orange-50" oninput="updateSummary()">
+          </div>
+          <div>
+            <label class="text-xs text-gray-500">Paid By</label>
+            <select id="oc-pby" class="${INP} bg-orange-50" onchange="updateSummary()">
+              <option value="driver" ${FS.oilChange.paidBy==='driver'?'selected':''}>Driver (cash)</option>
+              <option value="company" ${FS.oilChange.paidBy==='company'?'selected':''}>Company (online)</option>
+            </select>
+          </div>
+        </div>
+        <input id="oc-vnd" type="text" value="${esc(FS.oilChange.vendor||'')}" placeholder="Workshop / Vendor (optional)"
+          class="${INP} bg-orange-50">
+        <div class="text-xs text-orange-600 font-medium mt-1">⚠ Resets KMs since last oil change counter</div>
+      </div>` : ''}
+    </div>
+
     <div class="bg-white rounded-xl border p-4 mb-4 shadow-sm">
       <div class="flex justify-between items-center mb-3">
         <div>
@@ -1401,7 +1467,7 @@ function renderForm() {
         <div class="bg-red-50 border border-red-200 rounded-lg p-3 text-center">
           <div class="text-xs text-red-600 font-medium uppercase tracking-wide">${t('summary.expenses')}</div>
           <div id="s-exp" class="text-xl font-bold text-red-600 mt-1">${Rs(c.totalExp)}</div>
-          <div id="s-exp2" class="text-xs text-red-400 mt-0.5 leading-tight">Trip: ${N(c.tripExp)} · Misc: ${N(c.miscExp)} · Co.: ${N(c.coExp)}${c.dieselFillExp?` · Diesel: ${N(c.dieselFillExp)}`:''}</div>
+          <div id="s-exp2" class="text-xs text-red-400 mt-0.5 leading-tight">Trip: ${N(c.tripExp)} · Misc: ${N(c.miscExp)} · Co.: ${N(c.coExp)}${c.dieselFillExp?` · Diesel: ${N(c.dieselFillExp)}`:''}${c.oilChangeExp?` · Oil: ${N(c.oilChangeExp)}`:''}</div>
         </div>
         <div class="bg-blue-50 border border-blue-200 rounded-lg p-3 text-center">
           <div class="text-xs text-blue-600 font-medium uppercase tracking-wide">${t('summary.profit')}</div>
@@ -1505,6 +1571,7 @@ function openDay(id) {
           <span class="text-xs text-gray-400 font-medium">${window.t('ledger.trip_label')} ${i+1}</span>
           <div class="font-semibold text-slate-700 text-sm">${esc(t.dest)}</div>
           ${t.cust ? `<div class="text-xs text-gray-500">${esc(t.cust)}</div>` : ''}
+          ${t.kms ? `<div class="text-xs text-indigo-600 font-semibold">${t.kms} km</div>` : ''}
         </div>
         <span class="text-xs px-2 py-1 rounded-full shrink-0 ml-2 ${t.pm==='cash'?'bg-green-100 text-green-700':t.pm==='partial'?'bg-blue-100 text-blue-700':'bg-amber-100 text-amber-700'}">${t.pm==='cash'?window.t('pm.cash'):t.pm==='partial'?`${window.t('pm.partial')} (${window.t('ledger.cash')}: ${Rs(t.cashAmt||0)})`:`${window.t('pm.credit')}`}</span>
       </div>
@@ -1618,9 +1685,13 @@ function openDay(id) {
       <div class="flex justify-between text-sm font-semibold mt-1 mb-4 bg-gray-50 rounded-lg px-3 py-2">
         <span>${t('modal.total_income')}</span><span class="text-green-600">${Rs(c.totalInc)}</span>
       </div>
-      <div class="flex justify-between text-sm font-semibold mb-5 bg-gray-50 rounded-lg px-3 py-2">
+      <div class="flex justify-between text-sm font-semibold mb-4 bg-gray-50 rounded-lg px-3 py-2">
         <span>${t('modal.total_trip_exp')}</span><span class="text-red-500">${Rs(c.tripExp)}</span>
       </div>
+      ${e.trips.some(t=>+t.kms>0) ? `
+      <div class="flex justify-between text-sm font-semibold mb-4 bg-indigo-50 rounded-lg px-3 py-2">
+        <span>Total KMs Today</span><span class="text-indigo-600">${e.trips.reduce((s,t)=>s+(+t.kms||0),0).toLocaleString()} km</span>
+      </div>` : ''}
 
       <!-- Misc + Company exp -->
       <div class="grid sm:grid-cols-2 gap-4 mb-4">
@@ -1667,6 +1738,20 @@ function openDay(id) {
       </div>` : ''}
 
       ${dieselModalHTML}
+
+      ${e.oilChange && +e.oilChange.amt > 0 ? `
+      <div class="mb-4">
+        <h3 class="font-semibold text-slate-700 mb-2">🔧 Oil Change</h3>
+        <div class="bg-orange-50 border border-orange-200 rounded-lg p-3">
+          <div class="flex justify-between items-center text-sm">
+            <div>
+              <div class="font-medium text-orange-700">${esc(e.oilChange.vendor||'Oil Change')}</div>
+              <div class="text-xs text-gray-500">${e.oilChange.paidBy==='driver'?'Paid by Driver (cash)':'Paid by Company'}</div>
+            </div>
+            <span class="font-bold text-orange-700">${Rs(e.oilChange.amt)}</span>
+          </div>
+        </div>
+      </div>` : ''}
 
       <!-- Driver Transfers -->
       ${(outTransfers.length || incomingTransfers.length) ? `
@@ -2163,6 +2248,7 @@ function editDay(id) {
   if (!FS.clientPayments)  FS.clientPayments  = [];
   if (!FS.coexp)           FS.coexp           = [];
   if (!FS.diesel)          FS.diesel          = [];
+  if (FS.oilChange === undefined) FS.oilChange = null;
   closeModal();
   showView('entry');
 }
@@ -2230,6 +2316,10 @@ function buildMonthly(month) {
   const totalDieselFills = entries.reduce((s,e)=>{
     return s + (e.diesel||[]).filter(d=>d.type!=='payment').length;
   }, 0);
+
+  const monthKms = entries.reduce((s,e) => s + (e.trips||[]).reduce((ss,t) => ss+(+t.kms||0), 0), 0);
+  const kmPerLitre = (monthKms > 0 && totalDieselLiters > 0) ? (monthKms / totalDieselLiters).toFixed(1) : null;
+  const kmsSinceOilData = kmsSinceLastOilChange();
 
   const dmap = {};
   entries.forEach(e=>{
@@ -2381,6 +2471,12 @@ function buildMonthly(month) {
         <div class="text-xl font-bold text-amber-600 mt-1">${tot.trips}</div>
         <div class="text-xs text-gray-400">${entries.length} ${t('monthly.days')}</div>
       </div>
+      ${monthKms > 0 ? `
+      <div class="bg-white rounded-xl border border-indigo-100 p-3 text-center shadow-sm col-span-2">
+        <div class="text-xs text-gray-500 uppercase tracking-wide font-medium">Total KMs This Month</div>
+        <div class="text-xl font-bold text-indigo-600 mt-1">${monthKms.toLocaleString()} km</div>
+        ${kmPerLitre ? `<div class="text-xs text-gray-400 mt-0.5">${kmPerLitre} km/L efficiency</div>` : ''}
+      </div>` : ''}
     </div>
 
     ${totalDieselLiters > 0 || totalDieselDue > 0 ? `
@@ -2389,11 +2485,22 @@ function buildMonthly(month) {
         <div>
           <div class="text-xs text-gray-500 uppercase tracking-wide font-medium">⛽ Diesel This Month</div>
           <div class="text-xl font-bold text-emerald-600 mt-1">${totalDieselLiters.toFixed(0)} L</div>
-          <div class="text-xs text-gray-400 mt-0.5">${totalDieselFills} fill${totalDieselFills!==1?'s':''} · tap for history</div>
+          <div class="text-xs text-gray-400 mt-0.5">${totalDieselFills} fill${totalDieselFills!==1?'s':''}${kmPerLitre?` · ${kmPerLitre} km/L`:''} · tap for history</div>
         </div>
         <div class="text-right">
           <div class="text-xs text-gray-500">Credit Due (All-time)</div>
           <div class="text-xl font-bold ${totalDieselDue>0?'text-amber-700':'text-green-600'} mt-1">${totalDieselDue>0?Rs(totalDieselDue):'Cleared'}</div>
+        </div>
+      </div>
+    </div>` : ''}
+
+    ${kmsSinceOilData.kms > 0 ? `
+    <div class="bg-white rounded-xl border border-orange-200 p-3 mb-4 shadow-sm">
+      <div class="flex justify-between items-center">
+        <div>
+          <div class="text-xs text-gray-500 uppercase tracking-wide font-medium">🔧 KMs Since Last Oil Change</div>
+          <div class="text-xl font-bold text-orange-600 mt-1">${kmsSinceOilData.kms.toLocaleString()} km</div>
+          <div class="text-xs text-gray-400 mt-0.5">${kmsSinceOilData.lastOilDate ? `Last oil change: ${kmsSinceOilData.lastOilDate}` : 'No oil change recorded yet — showing all-time KMs'}</div>
         </div>
       </div>
     </div>` : ''}
