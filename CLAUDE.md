@@ -215,7 +215,12 @@ let FS = null  // current form state
   "coexp": [{ "desc": "Vehicle Repair", "qty": 0, "rate": 0, "amt": 1500 }],
   "clientPayments": [{ "client": "Rahim", "desc": "Payment received", "amount": 10000, "mode": "cash" }],
   "vendorPayments": [{ "vendor": "Pump Station", "amount": 5000, "mode": "cash" }],
-  "driverTransfers": [{ "toDriver": "Sheer Haider", "amt": 2000 }]
+  "driverTransfers": [{ "toDriver": "Sheer Haider", "amt": 2000 }],
+  "diesel": [
+    { "type": "cash_fill",   "vendor": "City Pump", "qty": 50, "rate": 280, "amt": 14000, "paidBy": "driver" },
+    { "type": "credit_fill", "vendor": "City Pump", "qty": 30, "rate": 280, "amt": 8400,  "paidBy": "driver" },
+    { "type": "payment",     "vendor": "City Pump", "qty": 0,  "rate": 0,   "amt": 8400,  "paidBy": "driver" }
+  ]
 }
 ```
 

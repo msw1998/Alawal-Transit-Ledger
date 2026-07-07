@@ -631,26 +631,30 @@ const Rs = n => 'Rs. ' + (n||0).toLocaleString('en-PK');
 const N  = n => (n||0).toLocaleString('en-PK');
 
 function calc(e) {
-  const cashInc      = e.trips.reduce((s,t)=> t.pm==='cash' ? s+(+t.income||0) : t.pm==='partial' ? s+(+t.cashAmt||0) : s, 0);
-  const totalInc     = e.trips.reduce((s,t)=>s+(+t.income||0),0);
-  const tripExpCash  = e.trips.reduce((s,t)=>s+t.exp.reduce((ss,x)=>ss+((x.mode||'cash')==='cash'?(+x.amt||0):0),0),0);
-  const tripExpCredit= e.trips.reduce((s,t)=>s+t.exp.reduce((ss,x)=>ss+(x.mode==='credit'?(+x.amt||0):0),0),0);
-  const tripExp      = tripExpCash + tripExpCredit;
-  const miscExp      = e.misc.reduce((s,x)=>s+(+x.amt||0),0);
-  const coExp        = (e.coexp||[]).reduce((s,x)=>s+(+x.amt||0),0);
-  const totalExp     = tripExp + miscExp + coExp;
-  const transferOut  = (e.driverTransfers||[]).reduce((s,x)=>s+(+x.amt||0),0);
-  const drvIn        = (+e.prevCash||0) + (+e.advance||0) + cashInc;
-  const drvRem       = drvIn - tripExpCash - miscExp - transferOut;
-  const profit       = totalInc - totalExp;
-  return { cashInc, totalInc, tripExpCash, tripExpCredit, tripExp, miscExp, coExp, totalExp, transferOut, drvIn, drvRem, profit };
+  const cashInc       = e.trips.reduce((s,t)=> t.pm==='cash' ? s+(+t.income||0) : t.pm==='partial' ? s+(+t.cashAmt||0) : s, 0);
+  const totalInc      = e.trips.reduce((s,t)=>s+(+t.income||0),0);
+  const tripExpCash   = e.trips.reduce((s,t)=>s+t.exp.reduce((ss,x)=>ss+((x.mode||'cash')==='cash'?(+x.amt||0):0),0),0);
+  const tripExpCredit = e.trips.reduce((s,t)=>s+t.exp.reduce((ss,x)=>ss+(x.mode==='credit'?(+x.amt||0):0),0),0);
+  const tripExp       = tripExpCash + tripExpCredit;
+  const miscExp       = e.misc.reduce((s,x)=>s+(+x.amt||0),0);
+  const coExp         = (e.coexp||[]).reduce((s,x)=>s+(+x.amt||0),0);
+  // Diesel: fills are business expenses; cash_fill + driver payments reduce driver cash
+  const diesel        = (e.diesel||[]);
+  const dieselFillExp = diesel.filter(d=>d.type!=='payment').reduce((s,d)=>s+(+d.amt||0),0);
+  const dieselDrvCash = diesel.filter(d=>d.type==='cash_fill'||(d.type==='payment'&&d.paidBy==='driver')).reduce((s,d)=>s+(+d.amt||0),0);
+  const totalExp      = tripExp + miscExp + coExp + dieselFillExp;
+  const transferOut   = (e.driverTransfers||[]).reduce((s,x)=>s+(+x.amt||0),0);
+  const drvIn         = (+e.prevCash||0) + (+e.advance||0) + cashInc;
+  const drvRem        = drvIn - tripExpCash - miscExp - transferOut - dieselDrvCash;
+  const profit        = totalInc - totalExp;
+  return { cashInc, totalInc, tripExpCash, tripExpCredit, tripExp, miscExp, coExp, dieselFillExp, dieselDrvCash, totalExp, transferOut, drvIn, drvRem, profit };
 }
 
 // ─── FORM STATE ─────────────────────────────────────────────
 let FS = null;
 
 function blankFS() {
-  return { id:null, date:new Date().toISOString().slice(0,10), driver:'', prevCash:0, advance:0, trips:[], misc:[], coexp:[], clientPayments:[], vendorPayments:[], driverTransfers:[], notes:'' };
+  return { id:null, date:new Date().toISOString().slice(0,10), driver:'', prevCash:0, advance:0, trips:[], misc:[], coexp:[], clientPayments:[], vendorPayments:[], driverTransfers:[], diesel:[], notes:'' };
 }
 
 function readDOM() {
@@ -710,6 +714,16 @@ function readDOM() {
     x.toDriver = (g(`tr-dr-${i}`)||{}).value||x.toDriver||'';
     x.amt      = +(g(`tr-am-${i}`)||{}).value||0;
   });
+  (FS.diesel||[]).forEach((d,i)=>{
+    d.type   = (g(`di-type-${i}`)||{}).value  || d.type || 'cash_fill';
+    d.vendor = (g(`di-vnd-${i}`)||{}).value   || d.vendor || '';
+    const isPay = d.type === 'payment';
+    d.qty    = isPay ? 0 : +(g(`di-qty-${i}` )||{}).value||0;
+    d.rate   = isPay ? 0 : +(g(`di-rate-${i}`)||{}).value||0;
+    d.paidBy = isPay ? ((g(`di-pby-${i}`)||{}).value||'driver') : 'driver';
+    d.amt    = isPay ? +(g(`di-pay-amt-${i}`)||{}).value||0 : +(g(`di-amt-${i}`)||{}).value||0;
+    if (!isPay && d.qty && d.rate) d.amt = d.qty * d.rate;
+  });
 }
 
 function _focus(id) { const el=document.getElementById(id); if(el){el.focus();el.scrollIntoView({block:'nearest'});} }
@@ -728,6 +742,17 @@ function addVP()       { readDOM(); if(!FS.vendorPayments)FS.vendorPayments=[]; 
 function remVP(i)      { readDOM(); FS.vendorPayments.splice(i,1); renderForm(); }
 function addTransfer() { readDOM(); if(!FS.driverTransfers)FS.driverTransfers=[]; FS.driverTransfers.push({toDriver:'',amt:0}); renderForm(); _focus('tr-dr-'+(FS.driverTransfers.length-1)); }
 function remTransfer(i){ readDOM(); FS.driverTransfers.splice(i,1); renderForm(); }
+function addDiesel()    { readDOM(); if(!FS.diesel)FS.diesel=[]; FS.diesel.push({type:'cash_fill',vendor:'',qty:0,rate:0,amt:0,paidBy:'driver'}); renderForm(); _focus('di-vnd-'+(FS.diesel.length-1)); }
+function remDiesel(i)   { readDOM(); FS.diesel.splice(i,1); renderForm(); }
+function dieselTypeChange(i) { readDOM(); renderForm(); }
+function dieselSync(i) {
+  const type = (document.getElementById(`di-type-${i}`)||{}).value;
+  if (type === 'payment') { updateSummary(); return; }
+  const q = +(document.getElementById(`di-qty-${i}`)||{}).value||0;
+  const r = +(document.getElementById(`di-rate-${i}`)||{}).value||0;
+  if (q&&r) { const el=document.getElementById(`di-amt-${i}`); if(el) el.value=q*r; }
+  updateSummary();
+}
 
 function coexpSync(i) {
   const q = +(document.getElementById(`c-q-${i}`)||{}).value||0;
@@ -771,7 +796,8 @@ function updateSummary() {
   if (!el('s-inc')) return;
   el('s-inc').textContent   = Rs(c.totalInc);
   el('s-exp').textContent   = Rs(c.totalExp);
-  el('s-exp2').textContent  = `Trip Cash: ${N(c.tripExpCash)}${c.tripExpCredit?` · Trip Credit: ${N(c.tripExpCredit)}`:''} · Misc: ${N(c.miscExp)} · Co.: ${N(c.coExp)}`;
+  el('s-exp2').textContent  = `Trip Cash: ${N(c.tripExpCash)}${c.tripExpCredit?` · Credit: ${N(c.tripExpCredit)}`:''} · Misc: ${N(c.miscExp)} · Co.: ${N(c.coExp)}${c.dieselFillExp?` · Diesel: ${N(c.dieselFillExp)}`:''}`;
+
   el('s-prof').textContent  = Rs(c.profit);
   el('s-prof').className    = `text-xl font-bold mt-1 ${c.profit>=0?'text-blue-700':'text-red-600'}`;
   el('s-drvin').textContent = Rs(c.drvIn);
@@ -794,6 +820,15 @@ function updateSummary() {
   if (vpTot) { const v=(FS.vendorPayments||[]).reduce((s,p)=>s+(+p.amount||0),0); vpTot.textContent=`${t('vp.total_paid')}: ${Rs(v)}`; vpTot.classList.toggle('hidden',!(FS.vendorPayments||[]).length); }
   const trTot = el('s-transfer-tot');
   if (trTot) { const v=(FS.driverTransfers||[]).reduce((s,x)=>s+(+x.amt||0),0); trTot.textContent=`Transferred: ${Rs(v)}`; trTot.classList.toggle('hidden',!(FS.driverTransfers||[]).length); }
+  const dsTot = el('s-diesel-tot');
+  if (dsTot) {
+    const fills  = (FS.diesel||[]).filter(d=>d.type!=='payment');
+    const pays   = (FS.diesel||[]).filter(d=>d.type==='payment');
+    const fillAmt= fills.reduce((s,d)=>s+(+d.amt||0),0);
+    const payAmt = pays.reduce((s,d)=>s+(+d.amt||0),0);
+    dsTot.textContent = `Diesel: ${Rs(fillAmt)}${payAmt?` · Payment: ${Rs(payAmt)}`:''}`;
+    dsTot.classList.toggle('hidden', !(FS.diesel||[]).length);
+  }
 }
 
 function autoFillPrevCash() {
@@ -882,6 +917,30 @@ function getVendors() {
   return [...s].sort();
 }
 
+function getDieselVendors() {
+  const s = new Set();
+  appData.entries.forEach(e => {
+    (e.diesel||[]).forEach(d => { if (d.vendor?.trim()) s.add(d.vendor.trim()); });
+  });
+  return [...s].sort();
+}
+
+function dieselVendorBalance(entries) {
+  const map = {};
+  const ensure = v => { if (!map[v]) map[v] = { liters:0, cashAmt:0, creditAmt:0, paid:0 }; };
+  entries.forEach(e => {
+    (e.diesel||[]).forEach(d => {
+      const v = d.vendor?.trim() || '(Unknown Pump)';
+      ensure(v);
+      if (d.type === 'cash_fill')   { map[v].liters += +d.qty||0; map[v].cashAmt   += +d.amt||0; }
+      if (d.type === 'credit_fill') { map[v].liters += +d.qty||0; map[v].creditAmt += +d.amt||0; }
+      if (d.type === 'payment')     { map[v].paid   += +d.amt||0; }
+    });
+  });
+  Object.values(map).forEach(d => { d.net = Math.max(0, d.creditAmt - d.paid); });
+  return map;
+}
+
 function clientBalance(entries) {
   const map = {};
   const ensure = client => { if (!map[client]) map[client] = { invoiced:0, cash:0, credit:0, payments:0 }; };
@@ -936,6 +995,65 @@ function renderForm() {
   const drvOpts     = data.drivers.map(d=>`<option value="${esc(d)}">`).join('');
   const clientOpts  = getClients().map(c=>`<option value="${esc(c)}">`).join('');
   const locationOpts= getLocations().map(l=>`<option value="${esc(l)}">`).join('');
+
+  const dieselHTML = (FS.diesel||[]).map((d,i)=>{
+    const isPay = d.type === 'payment';
+    return `
+    <div class="border rounded-lg p-3 bg-emerald-50 space-y-2">
+      <div class="flex gap-2 items-center">
+        <select id="di-type-${i}" onchange="dieselTypeChange(${i})"
+          class="border rounded-lg px-2 py-2.5 text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-emerald-300 bg-white shrink-0">
+          <option value="cash_fill" ${d.type==='cash_fill'?'selected':''}>Cash Fill</option>
+          <option value="credit_fill" ${d.type==='credit_fill'?'selected':''}>Credit Fill</option>
+          <option value="payment" ${d.type==='payment'?'selected':''}>Payment</option>
+        </select>
+        <input id="di-vnd-${i}" type="text" value="${esc(d.vendor||'')}" placeholder="Pump / vendor name"
+          list="diesel-vendor-list" class="flex-1 ${INPS} bg-white" oninput="updateSummary()">
+        <button onclick="remDiesel(${i})" class="w-9 h-9 flex items-center justify-center text-red-400 hover:text-red-600 shrink-0 rounded-lg hover:bg-red-50 text-lg">✕</button>
+      </div>
+      <div id="di-fill-${i}" class="${isPay?'hidden':''}">
+        <div class="grid grid-cols-3 gap-2">
+          <div>
+            <label class="text-xs text-gray-500">Qty (Litres)</label>
+            <input id="di-qty-${i}" type="number" inputmode="numeric" value="${d.qty||''}" placeholder="0"
+              class="${INP} bg-white" oninput="dieselSync(${i})">
+          </div>
+          <div>
+            <label class="text-xs text-gray-500">Rate / Litre</label>
+            <input id="di-rate-${i}" type="number" inputmode="numeric" value="${d.rate||''}" placeholder="0"
+              class="${INP} bg-white" oninput="dieselSync(${i})">
+          </div>
+          <div>
+            <label class="text-xs text-gray-500">Amount</label>
+            <input id="di-amt-${i}" type="number" inputmode="numeric" value="${d.amt||''}" placeholder="Auto"
+              class="${INP} bg-white font-semibold" oninput="updateSummary()">
+          </div>
+        </div>
+        <div class="text-xs mt-1.5 font-medium ${d.type==='cash_fill'?'text-emerald-700':'text-amber-600'}">
+          ${d.type==='cash_fill'
+            ? '⚠ Deducted from driver hand cash'
+            : '⚠ On credit — added to vendor balance, not deducted from driver'}
+        </div>
+      </div>
+      <div id="di-pay-${i}" class="${isPay?'':'hidden'}">
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="text-xs text-gray-500">Amount Paid</label>
+            <input id="di-pay-amt-${i}" type="number" inputmode="numeric" value="${d.amt||''}" placeholder="0"
+              class="${INP} bg-white font-semibold" oninput="updateSummary()">
+          </div>
+          <div>
+            <label class="text-xs text-gray-500">Paid By</label>
+            <select id="di-pby-${i}" class="${INP} bg-white" onchange="updateSummary()">
+              <option value="driver" ${(d.paidBy||'driver')==='driver'?'selected':''}>Driver (cash)</option>
+              <option value="company" ${d.paidBy==='company'?'selected':''}>Company (online)</option>
+            </select>
+          </div>
+        </div>
+        <div class="text-xs text-gray-400 mt-1.5">Clears vendor credit balance. No additional expense recorded.</div>
+      </div>
+    </div>`;
+  }).join('');
 
   const tripsHTML = FS.trips.map((trip,ti)=>{
     const tot = trip.exp.reduce((s,x)=>s+(+x.amt||0),0);
@@ -1116,6 +1234,7 @@ function renderForm() {
     <datalist id="loc-list">${locationOpts}</datalist>
     <datalist id="cust-list">${clientOpts}</datalist>
     <datalist id="vendor-list">${getVendors().map(v=>`<option value="${esc(v)}">`).join('')}</datalist>
+    <datalist id="diesel-vendor-list">${getDieselVendors().map(v=>`<option value="${esc(v)}">`).join('')}</datalist>
 
     <div class="mb-4">
       <div class="flex justify-between items-center mb-3">
@@ -1147,6 +1266,18 @@ function renderForm() {
       </div>
       <div class="space-y-2">${coHTML || `<p class="text-sm text-gray-400">${t('misc.none')}</p>`}</div>
       <div id="s-coexp-tot" class="text-right mt-2 text-sm font-semibold text-purple-600 ${(FS.coexp||[]).length?'':'hidden'}">Total: ${Rs(c.coExp)}</div>
+    </div>
+
+    <div class="bg-white rounded-xl border border-emerald-200 p-4 mb-4 shadow-sm">
+      <div class="flex justify-between items-center mb-3">
+        <div>
+          <h2 class="font-semibold text-slate-700">⛽ Diesel</h2>
+          <p class="text-xs text-gray-400">Cash fill, credit fill, or payment to pump/vendor</p>
+        </div>
+        <button onclick="addDiesel()" class="bg-emerald-600 text-white px-3 py-2 rounded-lg text-sm font-medium hover:bg-emerald-700">+ Add</button>
+      </div>
+      <div class="space-y-3">${dieselHTML || '<p class="text-sm text-gray-400">No diesel entries.</p>'}</div>
+      <div id="s-diesel-tot" class="text-right mt-2 text-sm font-semibold text-emerald-700 ${(FS.diesel||[]).length?'':'hidden'}"></div>
     </div>
 
     <div class="bg-white rounded-xl border p-4 mb-4 shadow-sm">
@@ -1270,7 +1401,7 @@ function renderForm() {
         <div class="bg-red-50 border border-red-200 rounded-lg p-3 text-center">
           <div class="text-xs text-red-600 font-medium uppercase tracking-wide">${t('summary.expenses')}</div>
           <div id="s-exp" class="text-xl font-bold text-red-600 mt-1">${Rs(c.totalExp)}</div>
-          <div id="s-exp2" class="text-xs text-red-400 mt-0.5 leading-tight">Trip: ${N(c.tripExp)} · Misc: ${N(c.miscExp)} · Co.: ${N(c.coExp)}</div>
+          <div id="s-exp2" class="text-xs text-red-400 mt-0.5 leading-tight">Trip: ${N(c.tripExp)} · Misc: ${N(c.miscExp)} · Co.: ${N(c.coExp)}${c.dieselFillExp?` · Diesel: ${N(c.dieselFillExp)}`:''}</div>
         </div>
         <div class="bg-blue-50 border border-blue-200 rounded-lg p-3 text-center">
           <div class="text-xs text-blue-600 font-medium uppercase tracking-wide">${t('summary.profit')}</div>
@@ -1423,6 +1554,28 @@ function openDay(id) {
       <span class="font-semibold text-amber-700 shrink-0 ml-2">${Rs(p.amount)}</span>
     </div>`).join('');
 
+  // Diesel section for modal
+  const dieselEntries = (e.diesel||[]).filter(d=>+d.amt>0||+d.qty>0);
+  const dieselModalHTML = dieselEntries.length ? `
+    <div class="mb-4">
+      <h3 class="font-semibold text-slate-700 mb-2">⛽ Diesel</h3>
+      <div class="rounded-lg border border-emerald-200 divide-y overflow-hidden">
+        ${dieselEntries.map(d => {
+          const bg    = d.type==='cash_fill'?'bg-emerald-50':d.type==='credit_fill'?'bg-amber-50':'bg-blue-50';
+          const label = d.type==='cash_fill'?'Cash Fill':d.type==='credit_fill'?'Credit Fill':d.paidBy==='driver'?'Payment (Driver)':'Payment (Company)';
+          const ac    = d.type==='payment'?'text-blue-600':d.type==='cash_fill'?'text-emerald-700':'text-amber-700';
+          const detail= d.type==='payment'?`Paid to ${esc(d.vendor||'—')}`:`${esc(d.vendor||'—')}${d.qty?` · ${d.qty}L @ Rs.${N(d.rate)}`:''}`;
+          return `<div class="flex justify-between items-center px-3 py-2.5 ${bg}">
+            <div>
+              <div class="text-sm text-slate-700">${detail}</div>
+              <div class="text-xs text-gray-400 mt-0.5">${label}</div>
+            </div>
+            <div class="text-sm font-bold ${ac} shrink-0 ml-2">${Rs(d.amt)}</div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>` : '';
+
   // Outgoing driver transfers from this entry
   const outTransfers = (e.driverTransfers||[]).filter(x=>+x.amt>0);
   // Incoming transfers from other drivers on the same date
@@ -1512,6 +1665,8 @@ function openDay(id) {
           </div>
         </div>
       </div>` : ''}
+
+      ${dieselModalHTML}
 
       <!-- Driver Transfers -->
       ${(outTransfers.length || incomingTransfers.length) ? `
@@ -1850,6 +2005,156 @@ function downloadVendorLedger(name) {
   XLSX.writeFile(wb,`${name}_ledger.xlsx`);
 }
 
+// ─── DIESEL HISTORY MODALS ──────────────────────────────────
+function openDieselHistory(month) {
+  const monthEntries = appData.entries.filter(e=>e.date.startsWith(month));
+  const rows = [];
+  monthEntries.forEach(e => {
+    (e.diesel||[]).forEach(d => { rows.push({ date:e.date, driver:e.driver, ...d }); });
+  });
+  rows.sort((a,b)=>a.date.localeCompare(b.date));
+
+  const totLiters   = rows.filter(r=>r.type!=='payment').reduce((s,r)=>s+(+r.qty||0),0);
+  const totCashFill = rows.filter(r=>r.type==='cash_fill').reduce((s,r)=>s+(+r.amt||0),0);
+  const totCredit   = rows.filter(r=>r.type==='credit_fill').reduce((s,r)=>s+(+r.amt||0),0);
+  const totPaid     = rows.filter(r=>r.type==='payment').reduce((s,r)=>s+(+r.amt||0),0);
+
+  const rowsHtml = rows.map(r => {
+    const ds = new Date(r.date+'T00:00:00').toLocaleDateString('en-PK',{day:'2-digit',month:'short'});
+    const typeLabel = r.type==='cash_fill'?'Cash Fill':r.type==='credit_fill'?'Credit Fill':r.paidBy==='driver'?'Payment (Driver)':'Payment (Company)';
+    const bg = r.type==='cash_fill'?'bg-emerald-50':r.type==='credit_fill'?'bg-amber-50':'bg-blue-50';
+    const ac = r.type==='payment'?'text-blue-600':r.type==='cash_fill'?'text-emerald-700':'text-amber-700';
+    return `<div class="flex justify-between items-start py-2.5 border-b gap-2 ${bg} px-2 my-0.5 rounded">
+      <div class="flex-1 min-w-0">
+        <div class="text-xs text-gray-400">${ds} · ${esc(r.driver)}</div>
+        <div class="text-sm text-slate-700"><span class="font-semibold">${esc(r.vendor||'—')}</span> <span class="text-xs text-gray-400">${typeLabel}</span></div>
+        ${r.type!=='payment'&&r.qty?`<div class="text-xs text-gray-500">${r.qty} L @ Rs.${N(r.rate)}</div>`:''}
+      </div>
+      <div class="text-sm font-bold ${ac} shrink-0">${Rs(r.amt)}</div>
+    </div>`;
+  }).join('');
+
+  const [y,m] = month.split('-');
+  const monthLabel = new Date(+y,+m-1,1).toLocaleDateString('en-PK',{month:'long',year:'numeric'});
+  document.getElementById('day-modal-body').innerHTML = `
+    <div class="p-4 md:p-6">
+      <div class="flex justify-between items-start mb-4 pb-4 border-b">
+        <div>
+          <div class="text-xs font-bold text-emerald-600 uppercase tracking-widest">⛽ Diesel History</div>
+          <h2 class="text-lg font-bold text-slate-800 mt-1">${monthLabel}</h2>
+        </div>
+        <button onclick="closeModal()" class="text-gray-400 hover:text-gray-700 text-3xl leading-none -mt-1">&times;</button>
+      </div>
+      <div class="grid grid-cols-2 gap-2 mb-4">
+        <div class="bg-emerald-50 border border-emerald-100 rounded-lg p-2 text-center">
+          <div class="text-xs text-gray-400">Total Litres Filled</div>
+          <div class="font-bold text-emerald-700">${totLiters.toFixed(0)} L</div>
+        </div>
+        <div class="bg-gray-50 border rounded-lg p-2 text-center">
+          <div class="text-xs text-gray-400">Cash Fills</div>
+          <div class="font-bold text-slate-700">${Rs(totCashFill)}</div>
+        </div>
+        <div class="bg-amber-50 border border-amber-100 rounded-lg p-2 text-center">
+          <div class="text-xs text-gray-400">Credit Fills</div>
+          <div class="font-bold text-amber-700">${Rs(totCredit)}</div>
+        </div>
+        <div class="bg-blue-50 border border-blue-100 rounded-lg p-2 text-center">
+          <div class="text-xs text-gray-400">Payments Made</div>
+          <div class="font-bold text-blue-600">${Rs(totPaid)}</div>
+        </div>
+      </div>
+      <div>${rowsHtml||`<p class="text-sm text-gray-400 text-center py-8">No diesel transactions this month.</p>`}</div>
+      <div class="h-6"></div>
+    </div>`;
+  document.getElementById('day-modal').classList.remove('hidden');
+  document.getElementById('day-modal').scrollTop=0;
+}
+
+function openDieselVendorHistory(name) {
+  const rows = [];
+  appData.entries.forEach(e => {
+    (e.diesel||[]).forEach(d => {
+      if ((d.vendor?.trim()||'(Unknown Pump)') !== name) return;
+      rows.push({ date:e.date, driver:e.driver, ...d });
+    });
+  });
+  rows.sort((a,b)=>a.date.localeCompare(b.date));
+
+  let creditBal = 0;
+  const processed = rows.map(r => {
+    if (r.type==='credit_fill') creditBal += +r.amt||0;
+    else if (r.type==='payment') creditBal -= +r.amt||0;
+    return {...r, creditBal: Math.max(0, creditBal)};
+  });
+
+  const totLiters  = rows.filter(r=>r.type!=='payment').reduce((s,r)=>s+(+r.qty||0),0);
+  const totCredit  = rows.filter(r=>r.type==='credit_fill').reduce((s,r)=>s+(+r.amt||0),0);
+  const totPaid    = rows.filter(r=>r.type==='payment').reduce((s,r)=>s+(+r.amt||0),0);
+  const outstanding = Math.max(0, totCredit - totPaid);
+
+  const rowsHtml = processed.map(r => {
+    const ds = new Date(r.date+'T00:00:00').toLocaleDateString('en-PK',{day:'2-digit',month:'short',year:'numeric'});
+    if (r.type==='payment') return `
+      <div class="flex justify-between items-start py-3 border-b gap-2 bg-blue-50 px-2 rounded-lg my-1">
+        <div>
+          <div class="text-xs text-gray-400">${ds} · ${r.paidBy==='driver'?'Driver':'Company'}</div>
+          <div class="text-sm font-semibold text-blue-700">Payment Made</div>
+          <div class="text-xs text-gray-400">${r.paidBy==='driver'?'Paid by driver (cash)':'Paid by company (online)'}</div>
+        </div>
+        <div class="text-right shrink-0">
+          <div class="text-sm font-bold text-blue-600">−${Rs(r.amt)}</div>
+          <div class="text-xs text-amber-600 mt-0.5">Bal: ${Rs(r.creditBal)}</div>
+        </div>
+      </div>`;
+    const fillBg    = r.type==='cash_fill'?'bg-emerald-50':'bg-amber-50';
+    const fillColor = r.type==='cash_fill'?'text-emerald-700':'text-amber-700';
+    const fillLabel = r.type==='cash_fill'?'Cash Fill':'Credit Fill';
+    return `
+      <div class="flex justify-between items-start py-3 border-b gap-2 ${fillBg} px-2 rounded-lg my-1">
+        <div class="flex-1 min-w-0">
+          <div class="text-xs text-gray-400">${ds} · ${esc(r.driver)}</div>
+          <div class="text-sm font-semibold ${fillColor}">${fillLabel}</div>
+          ${r.qty?`<div class="text-xs text-gray-500">${r.qty} L @ Rs.${N(r.rate)}</div>`:''}
+        </div>
+        <div class="text-right shrink-0">
+          <div class="text-sm font-bold ${fillColor}">+${Rs(r.amt)}</div>
+          ${r.type==='credit_fill'?`<div class="text-xs text-amber-600 mt-0.5">Bal: ${Rs(r.creditBal)}</div>`:'<div class="text-xs text-emerald-600 mt-0.5">Cash paid</div>'}
+        </div>
+      </div>`;
+  }).join('');
+
+  const safeN = encodeURIComponent(name);
+  document.getElementById('day-modal-body').innerHTML = `
+    <div class="p-4 md:p-6">
+      <div class="flex justify-between items-start mb-4 pb-4 border-b">
+        <div>
+          <div class="text-xs font-bold text-emerald-600 uppercase tracking-widest">⛽ Diesel Ledger</div>
+          <h2 class="text-lg font-bold text-slate-800 mt-1">${esc(name)}</h2>
+          <div class="text-xs text-gray-400 mt-0.5">All-time transactions</div>
+        </div>
+        <button onclick="closeModal()" class="text-gray-400 hover:text-gray-700 text-3xl leading-none -mt-1">&times;</button>
+      </div>
+      <div class="grid grid-cols-3 gap-2 mb-4">
+        <div class="bg-emerald-50 border border-emerald-100 rounded-lg p-2 text-center">
+          <div class="text-xs text-gray-400">Total Litres</div>
+          <div class="font-bold text-emerald-700 text-sm">${totLiters.toFixed(0)} L</div>
+        </div>
+        <div class="bg-amber-50 border border-amber-100 rounded-lg p-2 text-center">
+          <div class="text-xs text-gray-400">Total Credit</div>
+          <div class="font-bold text-amber-700 text-sm">${Rs(totCredit)}</div>
+        </div>
+        <div class="${outstanding>0?'bg-red-50 border-red-100':'bg-green-50 border-green-100'} border rounded-lg p-2 text-center">
+          <div class="text-xs text-gray-400">Outstanding</div>
+          <div class="font-bold ${outstanding>0?'text-red-600':'text-green-600'} text-sm">${outstanding>0?Rs(outstanding):'Cleared'}</div>
+        </div>
+      </div>
+      <div>${rowsHtml||`<p class="text-sm text-gray-400 text-center py-8">No transactions found.</p>`}</div>
+      <div class="h-6"></div>
+    </div>`;
+  document.getElementById('day-modal').classList.remove('hidden');
+  document.getElementById('day-modal').scrollTop=0;
+}
+
 function editDay(id) {
   const e = load().entries.find(x=>x.id===id);
   if (!e) return;
@@ -1857,6 +2162,7 @@ function editDay(id) {
   if (!FS.vendorPayments)  FS.vendorPayments  = [];
   if (!FS.clientPayments)  FS.clientPayments  = [];
   if (!FS.coexp)           FS.coexp           = [];
+  if (!FS.diesel)          FS.diesel          = [];
   closeModal();
   showView('entry');
 }
@@ -1917,6 +2223,14 @@ function buildMonthly(month) {
     const c=calc(e); a.inc+=c.totalInc; a.exp+=c.totalExp; a.prof+=c.profit; a.trips+=e.trips.length; return a;
   },{inc:0,exp:0,prof:0,trips:0});
 
+  // Diesel stats for this month (no prevEntries needed)
+  const totalDieselLiters = entries.reduce((s,e)=>{
+    return s + (e.diesel||[]).filter(d=>d.type!=='payment').reduce((ss,d)=>ss+(+d.qty||0),0);
+  }, 0);
+  const totalDieselFills = entries.reduce((s,e)=>{
+    return s + (e.diesel||[]).filter(d=>d.type!=='payment').length;
+  }, 0);
+
   const dmap = {};
   entries.forEach(e=>{
     const c=calc(e);
@@ -1939,6 +2253,36 @@ function buildMonthly(month) {
   // All-time carry-over: entries before this month
   const allEntries  = data.entries;
   const prevEntries = allEntries.filter(e => e.date < month + '-01');
+
+  // ── Diesel vendor balances (all-time carry-over) ──
+  const prevDieselVbal = dieselVendorBalance(prevEntries);
+  const currDieselVbal = dieselVendorBalance(entries);
+  const allDieselVendorNames = new Set([...Object.keys(prevDieselVbal), ...Object.keys(currDieselVbal)]);
+  const totalDieselDue = [...allDieselVendorNames].reduce((s,v)=>{
+    return s + (prevDieselVbal[v]?.net||0) + (currDieselVbal[v]?.net||0);
+  }, 0);
+  const dieselVendorCards = [...allDieselVendorNames]
+    .filter(v => (prevDieselVbal[v]?.net||0)+(currDieselVbal[v]?.net||0)>0 || (currDieselVbal[v]?.liters||0)>0)
+    .map(v => {
+      const prevNet    = prevDieselVbal[v]?.net      || 0;
+      const currOwed   = currDieselVbal[v]?.creditAmt|| 0;
+      const currPaid   = currDieselVbal[v]?.paid     || 0;
+      const currNet    = currDieselVbal[v]?.net      || 0;
+      const currLiters = currDieselVbal[v]?.liters   || 0;
+      const total      = prevNet + currNet;
+      return `<div class="border rounded-lg p-3">
+        <div class="flex justify-between items-start mb-2">
+          <button onclick="openDieselVendorHistory(decodeURIComponent('${encodeURIComponent(v)}'))" class="text-sm font-semibold text-slate-700 hover:text-emerald-600 hover:underline text-left cursor-pointer">${esc(v)}</button>
+          <span class="text-sm font-bold ${total>0?'text-amber-700':'text-green-600'} shrink-0 ml-2">${total>0?Rs(total):'Cleared'}</span>
+        </div>
+        <div class="grid grid-cols-3 gap-1 text-center text-xs">
+          <div class="bg-emerald-50 rounded p-1"><div class="text-gray-400">Litres (month)</div><div class="font-semibold text-emerald-700">${currLiters.toFixed(0)} L</div></div>
+          <div class="bg-amber-50 rounded p-1"><div class="text-gray-400">Credit (month)</div><div class="font-semibold text-amber-600">${Rs(currOwed)}</div></div>
+          <div class="bg-blue-50 rounded p-1"><div class="text-gray-400">Paid (month)</div><div class="font-semibold text-blue-600">${Rs(currPaid)}</div></div>
+        </div>
+        ${prevNet>0?`<div class="text-xs text-right mt-1.5 text-gray-400">Prev. balance: <span class="font-semibold text-orange-500">${Rs(prevNet)}</span></div>`:''}
+      </div>`;
+    }).join('');
 
   // ── Vendor payables with carry-over ──
   const prevVbal = vendorBalance(prevEntries);
@@ -2039,6 +2383,21 @@ function buildMonthly(month) {
       </div>
     </div>
 
+    ${totalDieselLiters > 0 || totalDieselDue > 0 ? `
+    <div class="bg-white rounded-xl border border-emerald-200 p-3 mb-4 shadow-sm cursor-pointer hover:bg-emerald-50 transition-colors" onclick="openDieselHistory('${month}')">
+      <div class="flex justify-between items-center">
+        <div>
+          <div class="text-xs text-gray-500 uppercase tracking-wide font-medium">⛽ Diesel This Month</div>
+          <div class="text-xl font-bold text-emerald-600 mt-1">${totalDieselLiters.toFixed(0)} L</div>
+          <div class="text-xs text-gray-400 mt-0.5">${totalDieselFills} fill${totalDieselFills!==1?'s':''} · tap for history</div>
+        </div>
+        <div class="text-right">
+          <div class="text-xs text-gray-500">Credit Due (All-time)</div>
+          <div class="text-xl font-bold ${totalDieselDue>0?'text-amber-700':'text-green-600'} mt-1">${totalDieselDue>0?Rs(totalDieselDue):'Cleared'}</div>
+        </div>
+      </div>
+    </div>` : ''}
+
     <div class="grid sm:grid-cols-2 gap-4 mb-4">
       <div class="bg-white rounded-xl border p-4 shadow-sm">
         <h3 class="font-semibold text-slate-700 mb-3 text-sm">${t('monthly.inc_vs_exp')}</h3>
@@ -2072,6 +2431,17 @@ function buildMonthly(month) {
           : `<span class="text-xs text-green-600 font-semibold">${t('monthly.all_cleared2')}</span>`}
       </div>
       <div class="p-3 space-y-2">${vendorCards}</div>
+    </div>` : ''}
+
+    ${dieselVendorCards ? `
+    <div class="bg-white rounded-xl border border-emerald-100 shadow-sm mb-4">
+      <div class="p-3 border-b flex justify-between items-center">
+        <span class="font-semibold text-slate-700">⛽ Diesel Vendors</span>
+        ${totalDieselDue>0
+          ? `<span class="text-xs font-semibold text-amber-700 bg-amber-50 px-2 py-1 rounded-full">Outstanding: ${Rs(totalDieselDue)}</span>`
+          : `<span class="text-xs text-green-600 font-semibold">All Cleared</span>`}
+      </div>
+      <div class="p-3 space-y-2">${dieselVendorCards}</div>
     </div>` : ''}
 
     <div class="bg-white rounded-xl border shadow-sm">
@@ -2243,7 +2613,7 @@ const TRANSLATIONS = {
     'exp.cash_opt':'Cash','exp.credit_opt':'Credit',
     'section.misc':'Misc Expenses','misc.subtitle':'Batti, Grease, Challan, Dihadi, Chai…',
     'btn.add':'+ Add','misc.none':'None added.','misc.trip_exp':'Trip Expenses',
-    'section.coexp':'Company Expenses','coexp.subtitle':'Diesel fill-ups, M.Tag, etc.',
+    'section.coexp':'Company Expenses','coexp.subtitle':'M.Tag, maintenance, repairs, etc.',
     'field.qty':'Qty (Litres)','field.rate':'Rate / Litre','field.total_amt':'Total Amount',
     'section.cp':'Client Payments Received',
     'cp.subtitle':'Cash, bank transfers, or expenses paid on client\'s behalf',
@@ -2336,7 +2706,7 @@ const TRANSLATIONS = {
     'exp.cash_opt':'نقد','exp.credit_opt':'ادھار',
     'section.misc':'متفرق اخراجات','misc.subtitle':'بتی، گریس، چالان، دیہاڑی، چائے…',
     'btn.add':'+ شامل','misc.none':'کچھ شامل نہیں۔','misc.trip_exp':'سفری اخراجات',
-    'section.coexp':'کمپنی اخراجات','coexp.subtitle':'ڈیزل، M.Tag وغیرہ',
+    'section.coexp':'کمپنی اخراجات','coexp.subtitle':'M.Tag، مرمت، دیگر وغیرہ',
     'field.qty':'مقدار (لیٹر)','field.rate':'ریٹ / لیٹر','field.total_amt':'کل رقم',
     'section.cp':'گاہک کی وصولیاں',
     'cp.subtitle':'نقد، بینک ٹرانسفر یا گاہک کی طرف سے اخراجات',
