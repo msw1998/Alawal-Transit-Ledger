@@ -636,7 +636,8 @@ function calc(e) {
   const tripExpCash   = e.trips.reduce((s,t)=>s+t.exp.reduce((ss,x)=>ss+((x.mode||'cash')==='cash'?(+x.amt||0):0),0),0);
   const tripExpCredit = e.trips.reduce((s,t)=>s+t.exp.reduce((ss,x)=>ss+(x.mode==='credit'?(+x.amt||0):0),0),0);
   const tripExp       = tripExpCash + tripExpCredit;
-  const miscExp       = e.misc.reduce((s,x)=>s+(+x.amt||0),0);
+  const miscExp       = (e.misc||[]).reduce((s,x)=>s+(+x.amt||0),0);
+  const miscExpCash   = (e.misc||[]).filter(x=>(x.mode||'cash')==='cash').reduce((s,x)=>s+(+x.amt||0),0);
   const coExp         = (e.coexp||[]).reduce((s,x)=>s+(+x.amt||0),0);
   // Diesel: fills are business expenses; cash_fill + driver payments reduce driver cash
   const diesel        = (e.diesel||[]);
@@ -648,9 +649,9 @@ function calc(e) {
   const totalExp         = tripExp + miscExp + coExp + dieselFillExp + oilChangeExp;
   const transferOut      = (e.driverTransfers||[]).reduce((s,x)=>s+(+x.amt||0),0);
   const drvIn            = (+e.prevCash||0) + (+e.advance||0) + cashInc;
-  const drvRem           = drvIn - tripExpCash - miscExp - transferOut - dieselDrvCash - oilChangeDrvCash;
+  const drvRem           = drvIn - tripExpCash - miscExpCash - transferOut - dieselDrvCash - oilChangeDrvCash;
   const profit           = totalInc - totalExp;
-  return { cashInc, totalInc, tripExpCash, tripExpCredit, tripExp, miscExp, coExp, dieselFillExp, dieselDrvCash, oilChangeExp, oilChangeDrvCash, totalExp, transferOut, drvIn, drvRem, profit };
+  return { cashInc, totalInc, tripExpCash, tripExpCredit, tripExp, miscExp, miscExpCash, coExp, dieselFillExp, dieselDrvCash, oilChangeExp, oilChangeDrvCash, totalExp, transferOut, drvIn, drvRem, profit };
 }
 
 // ─── FORM STATE ─────────────────────────────────────────────
@@ -694,14 +695,16 @@ function readDOM() {
     });
   });
   FS.misc.forEach((x,i)=>{
-    x.desc = (g(`m-d-${i}`)||{}).value||x.desc||'';
-    x.amt  = +(g(`m-a-${i}`)||{}).value||0;
+    x.desc   = (g(`m-d-${i}`)||{}).value||x.desc||'';
+    x.amt    = +(g(`m-a-${i}`)||{}).value||0;
+    x.mode   = (g(`m-m-${i}`)||{}).value||x.mode||'cash';
+    x.vendor = (g(`m-v-${i}`)||{}).value||x.vendor||'';
   });
   (FS.coexp||[]).forEach((x,i)=>{
-    x.desc = (g(`c-d-${i}`)||{}).value||x.desc||'';
-    x.qty  = +(g(`c-q-${i}`)||{}).value||0;
-    x.rate = +(g(`c-r-${i}`)||{}).value||0;
-    x.amt  = (x.qty&&x.rate) ? x.qty*x.rate : +(g(`c-a-${i}`)||{}).value||0;
+    x.desc   = (g(`c-d-${i}`)||{}).value||x.desc||'';
+    x.vendor = (g(`c-v-${i}`)||{}).value||x.vendor||'';
+    x.mode   = (g(`c-m-${i}`)||{}).value||x.mode||'cash';
+    x.amt    = +(g(`c-a-${i}`)||{}).value||0;
   });
   (FS.clientPayments||[]).forEach((x,i)=>{
     x.client = (g(`cp-cl-${i}`)||{}).value||x.client||'';
@@ -726,7 +729,6 @@ function readDOM() {
     d.rate   = isPay ? 0 : +(g(`di-rate-${i}`)||{}).value||0;
     d.paidBy = isPay ? ((g(`di-pby-${i}`)||{}).value||'driver') : 'driver';
     d.amt    = isPay ? +(g(`di-pay-amt-${i}`)||{}).value||0 : +(g(`di-amt-${i}`)||{}).value||0;
-    if (!isPay && d.qty && d.rate) d.amt = d.qty * d.rate;
   });
   if (FS.oilChange) {
     FS.oilChange.amt    = +(g('oc-amt')||{}).value||0;
@@ -741,9 +743,9 @@ function addTrip()    { readDOM(); FS.trips.push({id:uid(),dest:'',cust:'',kms:0
 function remTrip(i)   { readDOM(); FS.trips.splice(i,1); renderForm(); }
 function addTE(ti)    { readDOM(); FS.trips[ti].exp.push({desc:'',amt:0,mode:'cash',vendor:'',cfMode:false,cfQty:0,cfRate:0}); renderForm(); _focus('t-ed-'+ti+'-'+(FS.trips[ti].exp.length-1)); }
 function remTE(ti,ei) { readDOM(); FS.trips[ti].exp.splice(ei,1); renderForm(); }
-function addMisc()    { readDOM(); FS.misc.push({desc:'',amt:0}); renderForm(); _focus('m-d-'+(FS.misc.length-1)); }
+function addMisc()    { readDOM(); FS.misc.push({desc:'',amt:0,mode:'cash',vendor:''}); renderForm(); _focus('m-d-'+(FS.misc.length-1)); }
 function remMisc(i)   { readDOM(); FS.misc.splice(i,1); renderForm(); }
-function addCoExp()   { readDOM(); FS.coexp.push({desc:'',qty:0,rate:0,amt:0}); renderForm(); _focus('c-d-'+(FS.coexp.length-1)); }
+function addCoExp()   { readDOM(); FS.coexp.push({desc:'',vendor:'',mode:'cash',amt:0}); renderForm(); _focus('c-d-'+(FS.coexp.length-1)); }
 function remCoExp(i)  { readDOM(); FS.coexp.splice(i,1); renderForm(); }
 function addCP()      { readDOM(); FS.clientPayments.push({client:'',desc:'',amount:0,mode:'cash'}); renderForm(); _focus('cp-cl-'+(FS.clientPayments.length-1)); }
 function remCP(i)     { readDOM(); FS.clientPayments.splice(i,1); renderForm(); }
@@ -769,10 +771,17 @@ function toggleOilChange() {
   renderForm();
 }
 
-function coexpSync(i) {
-  const q = +(document.getElementById(`c-q-${i}`)||{}).value||0;
-  const r = +(document.getElementById(`c-r-${i}`)||{}).value||0;
-  if (q&&r) { const el=document.getElementById(`c-a-${i}`); if(el) el.value=q*r; }
+function toggleCoExpMode(i) {
+  const sel = document.getElementById(`c-m-${i}`);
+  const div = document.getElementById(`c-v-wrap-${i}`);
+  if (sel && div) div.classList.toggle('hidden', sel.value !== 'credit');
+  updateSummary();
+}
+
+function toggleMiscMode(i) {
+  const sel = document.getElementById(`m-m-${i}`);
+  const div = document.getElementById(`m-v-wrap-${i}`);
+  if (sel && div) div.classList.toggle('hidden', sel.value !== 'credit');
   updateSummary();
 }
 
@@ -927,6 +936,8 @@ function getVendors() {
   const s = new Set();
   appData.entries.forEach(e => {
     e.trips.forEach(t => (t.exp||[]).forEach(x => { if (x.vendor?.trim()) s.add(x.vendor.trim()); }));
+    (e.coexp||[]).forEach(x => { if (x.vendor?.trim()) s.add(x.vendor.trim()); });
+    (e.misc||[]).forEach(x => { if (x.vendor?.trim()) s.add(x.vendor.trim()); });
     (e.vendorPayments||[]).forEach(p => { if (p.vendor?.trim()) s.add(p.vendor.trim()); });
   });
   return [...s].sort();
@@ -1004,6 +1015,14 @@ function vendorBalance(entries) {
       (t.exp||[]).forEach(x => {
         if (x.mode==='credit' && +x.amt>0) { const v=x.vendor?.trim()||'(Unknown Vendor)'; ensure(v); map[v].owed+=+x.amt; }
       });
+    });
+    // Company expenses on credit with vendor
+    (e.coexp||[]).forEach(x => {
+      if (x.mode==='credit' && x.vendor?.trim() && +x.amt>0) { const v=x.vendor.trim(); ensure(v); map[v].owed+=+x.amt; }
+    });
+    // Misc expenses on credit with vendor
+    (e.misc||[]).forEach(x => {
+      if (x.mode==='credit' && x.vendor?.trim() && +x.amt>0) { const v=x.vendor.trim(); ensure(v); map[v].owed+=+x.amt; }
     });
     (e.vendorPayments||[]).forEach(p => {
       if (+p.amount>0) { const v=p.vendor?.trim()||'(Unknown Vendor)'; ensure(v); map[v].paid+=+p.amount; }
@@ -1198,40 +1217,45 @@ function renderForm() {
   }).join('');
 
   const miscHTML = FS.misc.map((x,i)=>`
-    <div class="flex gap-2 items-center">
-      <input id="m-d-${i}" type="text" value="${esc(x.desc)}" placeholder="e.g. Dihadi, Chai, Challan…"
-        class="flex-1 ${INPS}" oninput="updateSummary()">
-      <input id="m-a-${i}" type="number" inputmode="numeric" value="${x.amt||''}" placeholder="0"
-        class="w-28 ${INPS} text-right" oninput="updateSummary()"
-        onkeydown="if(event.key==='Enter'){event.preventDefault();addMisc();}">
-      <button onclick="remMisc(${i})" class="w-9 h-9 flex items-center justify-center text-red-400 hover:text-red-600 shrink-0 rounded-lg hover:bg-red-50 text-lg">✕</button>
+    <div class="rounded-lg border bg-white px-2 py-1.5 space-y-1.5">
+      <div class="flex gap-1.5 items-center">
+        <input id="m-d-${i}" type="text" value="${esc(x.desc)}" placeholder="e.g. Dihadi, Chai, Challan…"
+          class="flex-1 ${INPS}" oninput="updateSummary()">
+        <input id="m-a-${i}" type="number" inputmode="numeric" value="${x.amt||''}" placeholder="0"
+          class="w-20 ${INPS} text-right" oninput="updateSummary()"
+          onkeydown="if(event.key==='Enter'){event.preventDefault();addMisc();}">
+        <select id="m-m-${i}" class="border rounded-lg px-1.5 py-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white shrink-0"
+          onchange="toggleMiscMode(${i})">
+          <option value="cash"   ${(x.mode||'cash')==='cash'  ?'selected':''}>Cash</option>
+          <option value="credit" ${x.mode==='credit'?'selected':''}>Credit</option>
+        </select>
+        <button onclick="remMisc(${i})" class="w-9 h-9 flex items-center justify-center text-red-400 hover:text-red-600 shrink-0 rounded-lg hover:bg-red-50 text-lg">✕</button>
+      </div>
+      <div id="m-v-wrap-${i}" class="${x.mode==='credit'?'':'hidden'}">
+        <input id="m-v-${i}" type="text" value="${esc(x.vendor||'')}" placeholder="Vendor name (optional — tracks outstanding balance)"
+          list="vendor-list" class="w-full ${INPS} border-amber-300 focus:ring-amber-300 bg-amber-50 text-sm">
+      </div>
     </div>`).join('');
 
-  // Company expense rows: stacked on mobile
+  // Company expense rows
   const coHTML = (FS.coexp||[]).map((x,i)=>`
-    <div class="border rounded-lg p-3 bg-gray-50 space-y-2">
-      <div class="flex gap-2 items-center">
-        <input id="c-d-${i}" type="text" value="${esc(x.desc)}" placeholder="e.g. Diesel, M.Tag…"
+    <div class="rounded-lg border bg-white px-2 py-1.5 space-y-1.5">
+      <div class="flex gap-1.5 items-center">
+        <input id="c-d-${i}" type="text" value="${esc(x.desc)}" placeholder="e.g. M.Tag, Vehicle Repair…"
           class="flex-1 ${INPS}" oninput="updateSummary()">
+        <input id="c-a-${i}" type="number" inputmode="numeric" value="${x.amt||''}" placeholder="0"
+          class="w-20 ${INPS} text-right" oninput="updateSummary()"
+          onkeydown="if(event.key==='Enter'){event.preventDefault();addCoExp();}">
+        <select id="c-m-${i}" class="border rounded-lg px-1.5 py-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-300 bg-white shrink-0"
+          onchange="toggleCoExpMode(${i})">
+          <option value="cash"   ${(x.mode||'cash')==='cash'  ?'selected':''}>Cash</option>
+          <option value="credit" ${x.mode==='credit'?'selected':''}>Credit</option>
+        </select>
         <button onclick="remCoExp(${i})" class="w-9 h-9 flex items-center justify-center text-red-400 hover:text-red-600 shrink-0 rounded-lg hover:bg-red-50 text-lg">✕</button>
       </div>
-      <div class="flex gap-2 items-center">
-        <div class="flex-1">
-          <label class="text-xs text-gray-400">${t('field.qty')}</label>
-          <input id="c-q-${i}" type="number" inputmode="numeric" value="${x.qty||''}" placeholder="0"
-            class="w-full ${INPS} mt-0.5" oninput="coexpSync(${i})">
-        </div>
-        <div class="flex-1">
-          <label class="text-xs text-gray-400">${t('field.rate')}</label>
-          <input id="c-r-${i}" type="number" inputmode="numeric" value="${x.rate||''}" placeholder="0"
-            class="w-full ${INPS} mt-0.5" oninput="coexpSync(${i})">
-        </div>
-        <div class="flex-1">
-          <label class="text-xs text-gray-400">${t('field.total_amt')}</label>
-          <input id="c-a-${i}" type="number" inputmode="numeric" value="${x.amt||''}" placeholder="0"
-            class="w-full ${INPS} mt-0.5 font-semibold" oninput="updateSummary()"
-            onkeydown="if(event.key==='Enter'){event.preventDefault();addCoExp();}">
-        </div>
+      <div id="c-v-wrap-${i}" class="${x.mode==='credit'?'':'hidden'}">
+        <input id="c-v-${i}" type="text" value="${esc(x.vendor||'')}" placeholder="Vendor name (creates outstanding balance)"
+          list="vendor-list" class="w-full ${INPS} border-amber-300 focus:ring-amber-300 bg-amber-50 text-sm">
       </div>
     </div>`).join('');
 
@@ -1589,16 +1613,28 @@ function openDay(id) {
     </div>`;
   }).join('');
 
-  const miscRows = e.misc.filter(x=>+x.amt>0).map(x=>`
-    <div class="flex justify-between text-sm py-1">
-      <span class="text-gray-600">${esc(x.desc)}</span>
-      <span class="font-medium">${Rs(x.amt)}</span>
+  const miscRows = (e.misc||[]).filter(x=>+x.amt>0).map(x=>`
+    <div class="flex justify-between text-sm py-1 items-start gap-2">
+      <div class="min-w-0">
+        <span class="text-gray-600">${esc(x.desc)}</span>
+        ${x.vendor&&x.mode==='credit'?`<span class="ml-1 text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">${esc(x.vendor)}</span>`:''}
+      </div>
+      <div class="shrink-0 text-right">
+        <div class="font-medium">${Rs(x.amt)}</div>
+        ${x.mode==='credit'?`<div class="text-xs text-amber-600">Credit</div>`:''}
+      </div>
     </div>`).join('');
 
   const coRows = (e.coexp||[]).filter(x=>+x.amt>0).map(x=>`
-    <div class="flex justify-between text-sm py-1">
-      <span class="text-gray-600">${esc(x.desc)}${x.qty?` (${x.qty}${x.rate?' @ Rs.'+N(x.rate):''})`:''}</span>
-      <span class="font-medium">${Rs(x.amt)}</span>
+    <div class="flex justify-between text-sm py-1 items-start gap-2">
+      <div class="min-w-0">
+        <span class="text-gray-600">${esc(x.desc)}</span>
+        ${x.vendor&&x.mode==='credit'?`<span class="ml-1 text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">${esc(x.vendor)}</span>`:''}
+      </div>
+      <div class="shrink-0 text-right">
+        <div class="font-medium">${Rs(x.amt)}</div>
+        ${x.mode==='credit'?`<div class="text-xs text-amber-600">Credit</div>`:''}
+      </div>
     </div>`).join('');
 
   const modeLabel = { cash:t('mode.cash'), bank:t('mode.bank'), expense:t('mode.expense') };
