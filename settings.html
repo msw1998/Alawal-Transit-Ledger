@@ -163,6 +163,31 @@
     </div>
   </div>
 
+  <!-- Vehicles -->
+  <div class="bg-white rounded-2xl shadow-sm border p-6">
+    <h2 class="text-lg font-bold text-gray-800 mb-1">Vehicles</h2>
+    <p class="text-sm text-gray-400 mb-5">Register your fleet. Vehicle plate numbers appear as a required field in the daily entry form.</p>
+
+    <div id="vehicle-list" class="mb-5 space-y-2 text-sm text-gray-500">Loading…</div>
+
+    <div class="border-t pt-5">
+      <h3 class="text-sm font-semibold text-gray-600 mb-3">Add Vehicle</h3>
+      <div id="vehicle-error" class="hidden mb-2 text-xs text-red-500"></div>
+      <div id="vehicle-success" class="hidden mb-2 text-xs text-green-600"></div>
+      <div class="flex flex-col sm:flex-row gap-2">
+        <input id="vehicle-plate" type="text" placeholder="Plate No. (e.g. ABC-123)"
+          class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 uppercase"
+          oninput="this.value=this.value.toUpperCase()">
+        <input id="vehicle-name" type="text" placeholder="Description (optional — e.g. Hino 300)"
+          class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400">
+        <button onclick="addVehicle()" id="vehicle-add-btn"
+          class="bg-amber-500 hover:bg-amber-600 text-white px-5 py-2 rounded-lg text-sm font-medium whitespace-nowrap">
+          Add Vehicle
+        </button>
+      </div>
+    </div>
+  </div>
+
 </div>
 
 <script>
@@ -233,6 +258,7 @@ async function init() {
     updateLogoDisplay(profile.org.logo_url);
 
     loadTeamMembers();
+    loadVehicles();
   } catch (e) {
     console.error('Init error:', e);
     window.location.href = '/login';
@@ -443,6 +469,66 @@ function switchTeamTab(tab) {
   const inactive = 'flex-1 py-1.5 text-sm rounded-md font-medium transition-colors text-gray-500';
   document.getElementById('tab-invite-btn').className = isInvite  ? active : inactive;
   document.getElementById('tab-create-btn').className = !isInvite ? active : inactive;
+}
+
+async function loadVehicles() {
+  const list = document.getElementById('vehicle-list');
+  list.textContent = 'Loading…';
+  try {
+    const vehicles = await apiFetch('vehicles');
+    if (!vehicles.length) {
+      list.innerHTML = '<span class="text-gray-400 text-xs">No vehicles registered yet.</span>';
+      return;
+    }
+    list.innerHTML = vehicles.map(v => `
+      <div class="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2.5">
+        <div>
+          <span class="font-semibold text-gray-800 tracking-wide">${esc(v.plate)}</span>
+          ${v.name ? `<span class="ml-2 text-sm text-gray-500">${esc(v.name)}</span>` : ''}
+        </div>
+        <button onclick="removeVehicle('${v.id}','${esc(v.plate)}')" class="text-red-400 hover:text-red-600 text-xs ml-2">Remove</button>
+      </div>`).join('');
+  } catch {
+    list.innerHTML = '<span class="text-red-400 text-xs">Failed to load vehicles.</span>';
+  }
+}
+
+async function addVehicle() {
+  const plateEl = document.getElementById('vehicle-plate');
+  const nameEl  = document.getElementById('vehicle-name');
+  const errEl   = document.getElementById('vehicle-error');
+  const okEl    = document.getElementById('vehicle-success');
+  const btn     = document.getElementById('vehicle-add-btn');
+  errEl.classList.add('hidden');
+  okEl.classList.add('hidden');
+  const plate = plateEl.value.trim().toUpperCase();
+  const name  = nameEl.value.trim();
+  if (!plate) { errEl.textContent = 'Plate number is required.'; errEl.classList.remove('hidden'); return; }
+  btn.textContent = 'Adding…';
+  btn.disabled = true;
+  try {
+    await apiFetch('vehicles', { method: 'POST', body: { plate, name } });
+    okEl.textContent = `Vehicle ${plate} added!`;
+    okEl.classList.remove('hidden');
+    plateEl.value = '';
+    nameEl.value  = '';
+    loadVehicles();
+  } catch (e) {
+    errEl.textContent = 'Failed: ' + e.message;
+    errEl.classList.remove('hidden');
+  }
+  btn.textContent = 'Add Vehicle';
+  btn.disabled = false;
+}
+
+async function removeVehicle(id, plate) {
+  if (!confirm(`Remove vehicle ${plate}? Existing entries using this vehicle won't be affected.`)) return;
+  try {
+    await apiFetch(`vehicles?id=${id}`, { method: 'DELETE' });
+    loadVehicles();
+  } catch (e) {
+    alert('Failed: ' + e.message);
+  }
 }
 
 init();

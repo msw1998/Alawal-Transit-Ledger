@@ -247,7 +247,7 @@ let allOrgs      = [];     // all orgs this user belongs to
 // ─── DATA LAYER ─────────────────────────────────────────────
 const cacheKey  = () => `alawal_cache_${activeOrgId || 'default'}`;
 const API = '/.netlify/functions';
-let appData = { entries: [], drivers: ['Nazir', 'Sheer Haider'] };
+let appData = { entries: [], drivers: ['Nazir', 'Sheer Haider'], vehicles: [] };
 
 // Synchronous read — always returns in-memory state
 function load() { return appData; }
@@ -439,7 +439,7 @@ async function switchOrg(orgId) {
   }
 
   // Reload data for the new org
-  appData = { entries: [], drivers: [] };
+  appData = { entries: [], drivers: [], vehicles: [] };
   setSyncStatus('syncing');
   FS = blankFS();
   renderForm();
@@ -447,9 +447,11 @@ async function switchOrg(orgId) {
   if (active?.id === 'view-daily')   renderDaily();
   if (active?.id === 'view-monthly') renderMonthly();
   try {
-    const [entries, drivers] = await Promise.all([apiFetch('entries'), apiFetch('drivers')]);
+    const [entries, drivers, vehicles] = await Promise.all([apiFetch('entries'), apiFetch('drivers'), apiFetch('vehicles').catch(()=>[])]);
     appData.entries = entries;
     if (drivers.length) appData.drivers = drivers;
+    appData.vehicles = vehicles || [];
+    if (appData.vehicles.length === 1) FS.vehicle = appData.vehicles[0].plate;
     cache();
     setSyncStatus('ok');
     renderForm();
@@ -610,9 +612,11 @@ async function initData() {
 
   setSyncStatus('syncing');
   try {
-    const [entries, drivers] = await Promise.all([apiFetch('entries'), apiFetch('drivers')]);
+    const [entries, drivers, vehicles] = await Promise.all([apiFetch('entries'), apiFetch('drivers'), apiFetch('vehicles').catch(()=>[])]);
     appData.entries = entries;
     if (drivers.length) appData.drivers = drivers;
+    appData.vehicles = vehicles || [];
+    if (appData.vehicles.length === 1) FS.vehicle = appData.vehicles[0].plate;
     cache();
     setSyncStatus('ok');
     const active = document.querySelector('.view:not(.hidden)');
@@ -656,9 +660,10 @@ function calc(e) {
 
 // ─── FORM STATE ─────────────────────────────────────────────
 let FS = null;
+let selectedVehicle = 'all';
 
 function blankFS() {
-  return { id:null, date:new Date().toISOString().slice(0,10), driver:'', prevCash:0, advance:0, trips:[], misc:[], coexp:[], clientPayments:[], vendorPayments:[], driverTransfers:[], diesel:[], oilChange:null, notes:'' };
+  return { id:null, date:new Date().toISOString().slice(0,10), driver:'', vehicle:'', prevCash:0, advance:0, trips:[], misc:[], coexp:[], clientPayments:[], vendorPayments:[], driverTransfers:[], diesel:[], oilChange:null, notes:'' };
 }
 
 function readDOM() {
@@ -666,6 +671,7 @@ function readDOM() {
   if (!g('f-date')) return;
   FS.date     = g('f-date').value;
   FS.driver   = g('f-driver').value;
+  FS.vehicle  = (g('f-vehicle')||{}).value||FS.vehicle||'';
   FS.prevCash = +g('f-prev').value||0;
   FS.advance  = +g('f-adv').value||0;
   FS.notes    = g('f-notes').value;
@@ -901,6 +907,7 @@ function togglePartial(ti) {
 async function saveEntry() {
   readDOM();
   if (!FS.date||!FS.driver.trim()) { alert(t('alert.date_driver')); return; }
+  if (!FS.vehicle) { alert('Please select a vehicle before saving.'); return; }
   if (!FS.id) FS.id = uid();
   const idx = appData.entries.findIndex(e=>e.id===FS.id);
   const saved = JSON.parse(JSON.stringify(FS));
@@ -967,8 +974,11 @@ function dieselVendorBalance(entries) {
   return map;
 }
 
-function kmsSinceLastOilChange() {
-  const sorted = [...appData.entries].sort((a,b) => a.date.localeCompare(b.date));
+function kmsSinceLastOilChange(vehicleFilter) {
+  const pool = (vehicleFilter && vehicleFilter !== 'all')
+    ? appData.entries.filter(e => e.vehicle === vehicleFilter)
+    : appData.entries;
+  const sorted = [...pool].sort((a,b) => a.date.localeCompare(b.date));
   let lastOilDate = null;
   for (let i = sorted.length - 1; i >= 0; i--) {
     if (sorted[i].oilChange && +sorted[i].oilChange.amt > 0) {
@@ -1267,6 +1277,19 @@ function renderForm() {
 
     <div class="bg-white rounded-xl border p-4 mb-4 shadow-sm">
       <h2 class="font-semibold text-slate-700 mb-3">${t('section.day_details')}</h2>
+      ${(() => {
+        const vOpts = (data.vehicles||[]).map(v => `<option value="${esc(v.plate)}" ${FS.vehicle===v.plate?'selected':''}>${esc(v.plate)}${v.name?' — '+esc(v.name):''}</option>`).join('');
+        const noVehicles = !(data.vehicles||[]).length;
+        return `<div class="mb-3">
+          <label class="text-xs font-medium text-gray-500">Vehicle <span class="text-red-500">*</span></label>
+          ${noVehicles
+            ? `<div class="mt-1 text-sm text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">No vehicles registered. <a href="/settings" class="underline font-medium">Add one in Settings →</a></div>`
+            : `<select id="f-vehicle" class="${INP}" onchange="updateSummary()">
+                <option value="">— Select vehicle —</option>
+                ${vOpts}
+               </select>`}
+        </div>`;
+      })()}
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label class="text-xs font-medium text-gray-500">${t('field.date')}</label>
@@ -1543,7 +1566,7 @@ function buildDailyCards(entries) {
       <div class="flex justify-between items-start">
         <div>
           <div class="font-semibold text-slate-700">${ds}</div>
-          <div class="text-sm text-gray-500 mt-0.5">${t('daily.driver')}: <strong>${esc(e.driver)}</strong> · ${e.trips.length} ${t('daily.trips')}</div>
+          <div class="text-sm text-gray-500 mt-0.5">${t('daily.driver')}: <strong>${esc(e.driver)}</strong> · ${e.trips.length} ${t('daily.trips')}${e.vehicle?` · <span class="font-mono text-xs bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">${esc(e.vehicle)}</span>`:''}</div>
         </div>
         <div class="text-right text-sm shrink-0 ml-3">
           <div class="text-green-600 font-bold">${Rs(c.totalInc)}</div>
@@ -1696,7 +1719,7 @@ function openDay(id) {
         <div>
           <div class="text-xs font-bold text-amber-600 uppercase tracking-widest">${esc(currentOrg?.name||'RouteBook')}</div>
           <h2 class="text-lg font-bold text-slate-800 mt-1 leading-tight">${ds}</h2>
-          <div class="text-gray-500 text-sm mt-0.5">Driver: <span class="font-semibold text-slate-700">${esc(e.driver)}</span></div>
+          <div class="text-gray-500 text-sm mt-0.5">Driver: <span class="font-semibold text-slate-700">${esc(e.driver)}</span>${e.vehicle?` · <span class="font-mono text-xs bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded ml-1">${esc(e.vehicle)}</span>`:''}</div>
         </div>
         <button onclick="closeModal()" class="no-print text-gray-400 hover:text-gray-700 text-3xl leading-none shrink-0 ml-3 -mt-1">&times;</button>
       </div>
@@ -2285,6 +2308,7 @@ function editDay(id) {
   if (!FS.coexp)           FS.coexp           = [];
   if (!FS.diesel)          FS.diesel          = [];
   if (FS.oilChange === undefined) FS.oilChange = null;
+  if (FS.vehicle === undefined) FS.vehicle = '';
   closeModal();
   showView('entry');
 }
@@ -2314,6 +2338,29 @@ function shiftMonth(delta) {
   buildMonthly(pick.value);
 }
 
+function renderVehicleTabs() {
+  const container = document.getElementById('vehicle-tabs');
+  if (!container) return;
+  const vehicles = appData.vehicles || [];
+  if (vehicles.length <= 1) { container.classList.add('hidden'); return; }
+  container.classList.remove('hidden');
+  const tabs = [{ plate:'all', label:'All Vehicles' }, ...vehicles.map(v=>({ plate:v.plate, label:v.plate+(v.name?' — '+v.name:'') }))];
+  container.innerHTML = tabs.map(tab => `
+    <button onclick="setVehicleFilter('${esc(tab.plate)}')"
+      class="px-3 py-1.5 rounded-full text-sm font-medium border transition-colors ${selectedVehicle===tab.plate
+        ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
+        : 'bg-white text-gray-600 border-gray-300 hover:border-blue-400 hover:text-blue-600'}">
+      ${esc(tab.label)}
+    </button>`).join('');
+}
+
+function setVehicleFilter(plate) {
+  selectedVehicle = plate;
+  renderVehicleTabs();
+  const pick = document.getElementById('mpick');
+  if (pick) buildMonthly(pick.value);
+}
+
 function renderMonthly() {
   const now = new Date();
   const def = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
@@ -2326,13 +2373,16 @@ function renderMonthly() {
         <button onclick="shiftMonth(1)" class="w-9 h-9 flex items-center justify-center rounded-lg border bg-white hover:bg-gray-50 text-slate-600 shadow-sm text-lg font-bold">›</button>
       </div>
     </div>
+    <div id="vehicle-tabs" class="flex gap-2 flex-wrap mb-4 hidden"></div>
     <div id="mcontent"></div>`;
+  renderVehicleTabs();
   buildMonthly(def);
 }
 
 function buildMonthly(month) {
   const data = load();
-  const entries = data.entries.filter(e=>e.date.startsWith(month)).sort((a,b)=>a.date.localeCompare(b.date));
+  const vFilter = selectedVehicle && selectedVehicle !== 'all' ? selectedVehicle : null;
+  const entries = data.entries.filter(e=>e.date.startsWith(month)&&(!vFilter||e.vehicle===vFilter)).sort((a,b)=>a.date.localeCompare(b.date));
   Object.values(mCharts).forEach(c=>{try{c.destroy();}catch{}});
   mCharts = {};
 
@@ -2355,7 +2405,7 @@ function buildMonthly(month) {
 
   const monthKms = entries.reduce((s,e) => s + (e.trips||[]).reduce((ss,t) => ss+(+t.kms||0), 0), 0);
   const kmPerLitre = (monthKms > 0 && totalDieselLiters > 0) ? (monthKms / totalDieselLiters).toFixed(1) : null;
-  const kmsSinceOilData = kmsSinceLastOilChange();
+  const kmsSinceOilData = kmsSinceLastOilChange(selectedVehicle);
 
   const dmap = {};
   entries.forEach(e=>{
@@ -2376,8 +2426,8 @@ function buildMonthly(month) {
       </div>
     </div>`).join('');
 
-  // All-time carry-over: entries before this month
-  const allEntries  = data.entries;
+  // All-time carry-over: entries before this month (respect vehicle filter)
+  const allEntries  = vFilter ? data.entries.filter(e => e.vehicle === vFilter) : data.entries;
   const prevEntries = allEntries.filter(e => e.date < month + '-01');
 
   // ── Diesel vendor balances (all-time carry-over) ──
