@@ -27,168 +27,269 @@
   <button onclick="logout()" class="text-sm text-slate-400 hover:text-white transition-colors px-3 py-1.5 rounded-lg hover:bg-slate-700">Sign Out</button>
 </nav>
 
-<div class="max-w-2xl mx-auto px-4 py-8 space-y-6">
+<div class="max-w-5xl mx-auto px-4 py-8">
+  <div class="flex flex-col md:flex-row gap-6 items-start">
 
-  <!-- Business Settings -->
-  <div class="bg-white rounded-2xl shadow-sm border p-6">
-    <h2 class="text-lg font-bold text-gray-800 mb-1">Business Settings</h2>
-    <p class="text-sm text-gray-400 mb-5">Appears in invoice headers and your team profile.</p>
-
-    <div id="biz-error" class="hidden mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm"></div>
-    <div id="biz-success" class="hidden mb-4 p-3 bg-green-50 border border-green-200 rounded-lg text-green-700 text-sm"></div>
-
-    <form id="biz-form" onsubmit="saveBizSettings(event)" class="space-y-4">
-      <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1">Business Name</label>
-        <input id="biz-name" type="text" required
-          class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
-          placeholder="e.g. RouteBook Logistics">
+    <!-- Sidebar nav -->
+    <div class="w-full md:w-52 shrink-0">
+      <!-- Mobile: horizontal scroll tabs -->
+      <div class="md:hidden flex gap-1 overflow-x-auto pb-1 no-scrollbar">
+        <button onclick="showTab('business')" id="mob-nav-business" data-tab="business"
+          class="mob-nav-item flex items-center gap-1.5 whitespace-nowrap px-3 py-2 rounded-lg text-sm font-medium border transition-colors bg-amber-500 text-white border-amber-500">
+          <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+          Business
+        </button>
+        <button onclick="showTab('team')" id="mob-nav-team" data-tab="team"
+          class="mob-nav-item admin-only-tab flex items-center gap-1.5 whitespace-nowrap px-3 py-2 rounded-lg text-sm font-medium border transition-colors bg-white text-gray-600 border-gray-200 hover:border-amber-400 hover:text-amber-600">
+          <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+          Team
+        </button>
+        <button onclick="showTab('vehicles')" id="mob-nav-vehicles" data-tab="vehicles"
+          class="mob-nav-item admin-only-tab flex items-center gap-1.5 whitespace-nowrap px-3 py-2 rounded-lg text-sm font-medium border transition-colors bg-white text-gray-600 border-gray-200 hover:border-amber-400 hover:text-amber-600">
+          <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+          Vehicles
+        </button>
+        <button onclick="showTab('password')" id="mob-nav-password" data-tab="password"
+          class="mob-nav-item flex items-center gap-1.5 whitespace-nowrap px-3 py-2 rounded-lg text-sm font-medium border transition-colors bg-white text-gray-600 border-gray-200 hover:border-amber-400 hover:text-amber-600">
+          <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+          Password
+        </button>
       </div>
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Business Address</label>
-          <textarea id="biz-address" rows="3"
-            class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 resize-none"
-            placeholder="Street, City, Country"></textarea>
+
+      <!-- Desktop: vertical sidebar -->
+      <div class="hidden md:block bg-white rounded-2xl shadow-sm border overflow-hidden">
+        <div class="px-3 py-3 border-b">
+          <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider px-2">Settings</p>
         </div>
-        <div class="space-y-3">
+        <nav class="p-2 space-y-0.5">
+          <button onclick="showTab('business')" id="nav-business" data-tab="business"
+            class="nav-item admin-only-tab w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors text-left bg-amber-50 text-amber-700">
+            <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+            Business
+          </button>
+          <button onclick="showTab('team')" id="nav-team" data-tab="team"
+            class="nav-item admin-only-tab w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors text-left text-gray-600 hover:bg-gray-50">
+            <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/></svg>
+            Team
+          </button>
+          <button onclick="showTab('vehicles')" id="nav-vehicles" data-tab="vehicles"
+            class="nav-item admin-only-tab w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors text-left text-gray-600 hover:bg-gray-50">
+            <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+            Vehicles
+          </button>
+          <button onclick="showTab('password')" id="nav-password" data-tab="password"
+            class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors text-left text-gray-600 hover:bg-gray-50">
+            <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+            Password
+          </button>
+        </nav>
+      </div>
+    </div>
+
+    <!-- Content panels -->
+    <div class="flex-1 min-w-0">
+
+      <!-- ── Business ── -->
+      <div id="tab-business" class="tab-panel admin-only-tab bg-white rounded-2xl shadow-sm border p-6">
+        <div class="mb-6">
+          <h2 class="text-lg font-bold text-gray-800">Business Settings</h2>
+          <p class="text-sm text-gray-400 mt-0.5">Appears in invoice headers and your team profile.</p>
+        </div>
+
+        <div id="biz-error" class="hidden mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm"></div>
+        <div id="biz-success" class="hidden mb-4 p-3 bg-green-50 border border-green-200 rounded-lg text-green-700 text-sm"></div>
+
+        <form id="biz-form" onsubmit="saveBizSettings(event)" class="space-y-5">
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
-            <input id="biz-phone" type="tel"
+            <label class="block text-sm font-medium text-gray-700 mb-1">Business Name</label>
+            <input id="biz-name" type="text" required
               class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
-              placeholder="+92 300 0000000">
+              placeholder="e.g. AlAwal Transit">
           </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">
-              Business Logo <span class="text-gray-400 font-normal">(optional)</span>
-            </label>
-            <div class="flex items-center gap-3">
-              <div id="logo-preview-box" class="w-14 h-14 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center bg-gray-50 overflow-hidden shrink-0">
-                <img id="logo-preview-img" src="" alt="" class="hidden w-full h-full object-contain">
-                <span id="logo-preview-icon" class="text-xl text-gray-300">🖼</span>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Business Address</label>
+              <textarea id="biz-address" rows="3"
+                class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 resize-none"
+                placeholder="Street, City, Country"></textarea>
+            </div>
+            <div class="space-y-3">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
+                <input id="biz-phone" type="tel"
+                  class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                  placeholder="+92 300 0000000">
               </div>
-              <div class="flex-1 min-w-0">
-                <input type="file" id="biz-logo-file" accept="image/png,image/jpeg,image/jpg,image/svg+xml,image/webp" class="hidden" onchange="handleLogoFile(this)">
-                <button type="button" onclick="document.getElementById('biz-logo-file').click()" id="logo-upload-btn"
-                  class="w-full border border-dashed border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-500 hover:border-amber-400 hover:text-amber-600 transition-colors text-left">
-                  📁 Upload logo (PNG, JPG, SVG — max 2 MB)
-                </button>
-                <div id="logo-upload-progress" class="hidden mt-1 text-xs text-blue-500 flex items-center gap-1">
-                  <svg class="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" stroke-dasharray="40 60"/></svg>
-                  Uploading…
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">
+                  Business Logo <span class="text-gray-400 font-normal">(optional)</span>
+                </label>
+                <div class="flex items-center gap-3">
+                  <div id="logo-preview-box" class="w-14 h-14 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center bg-gray-50 overflow-hidden shrink-0">
+                    <img id="logo-preview-img" src="" alt="" class="hidden w-full h-full object-contain">
+                    <span id="logo-preview-icon" class="text-xl text-gray-300">🖼</span>
+                  </div>
+                  <div class="flex-1 min-w-0">
+                    <input type="file" id="biz-logo-file" accept="image/png,image/jpeg,image/jpg,image/svg+xml,image/webp" class="hidden" onchange="handleLogoFile(this)">
+                    <button type="button" onclick="document.getElementById('biz-logo-file').click()" id="logo-upload-btn"
+                      class="w-full border border-dashed border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-500 hover:border-amber-400 hover:text-amber-600 transition-colors text-left">
+                      📁 Upload logo (PNG, JPG, SVG — max 2 MB)
+                    </button>
+                    <div id="logo-upload-progress" class="hidden mt-1 text-xs text-blue-500 flex items-center gap-1">
+                      <svg class="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" stroke-dasharray="40 60"/></svg>
+                      Uploading…
+                    </div>
+                    <div id="logo-upload-error" class="hidden mt-1 text-xs text-red-500"></div>
+                    <button type="button" id="logo-remove-btn" onclick="removeLogo()" class="hidden mt-1 text-xs text-red-400 hover:text-red-600">✕ Remove logo</button>
+                  </div>
                 </div>
-                <div id="logo-upload-error" class="hidden mt-1 text-xs text-red-500"></div>
-                <button type="button" id="logo-remove-btn" onclick="removeLogo()" class="hidden mt-1 text-xs text-red-400 hover:text-red-600">✕ Remove logo</button>
+                <input type="hidden" id="biz-logo" value="">
               </div>
             </div>
-            <input type="hidden" id="biz-logo" value="">
+          </div>
+          <div class="flex justify-end pt-2 border-t">
+            <button type="submit" id="biz-save-btn"
+              class="bg-amber-500 hover:bg-amber-600 text-white font-semibold px-6 py-2.5 rounded-lg text-sm transition-colors">
+              Save Settings
+            </button>
+          </div>
+        </form>
+      </div>
+
+      <!-- ── Team ── -->
+      <div id="tab-team" class="tab-panel admin-only-tab hidden bg-white rounded-2xl shadow-sm border p-6">
+        <div class="mb-6">
+          <h2 class="text-lg font-bold text-gray-800">Team Management</h2>
+          <p class="text-sm text-gray-400 mt-0.5">Manage who has access to your RouteBook dashboard.</p>
+        </div>
+
+        <div class="mb-6">
+          <h3 class="text-sm font-semibold text-gray-600 mb-3">Current Members</h3>
+          <div id="team-members-list" class="space-y-2 text-sm text-gray-500">Loading…</div>
+        </div>
+
+        <div class="border-t pt-5">
+          <h3 class="text-sm font-semibold text-gray-700 mb-3">Add Member</h3>
+          <div class="flex gap-1 mb-4 bg-gray-100 rounded-lg p-1">
+            <button id="tab-invite-btn" onclick="switchTeamTab('invite')"
+              class="flex-1 py-1.5 text-sm rounded-md font-medium transition-colors bg-white shadow text-gray-800">
+              Invite via Email
+            </button>
+            <button id="tab-create-btn" onclick="switchTeamTab('create')"
+              class="flex-1 py-1.5 text-sm rounded-md font-medium transition-colors text-gray-500">
+              Create Account
+            </button>
+          </div>
+
+          <div id="team-tab-invite">
+            <div id="invite-error" class="hidden mb-2 text-xs text-red-500"></div>
+            <div id="invite-success" class="hidden mb-2 text-xs text-green-600"></div>
+            <div class="flex gap-2">
+              <input id="invite-email" type="email" placeholder="Email address"
+                class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400">
+              <select id="invite-role" class="border border-gray-300 rounded-lg px-2 py-2 text-sm">
+                <option value="editor">Editor</option>
+                <option value="admin">Admin</option>
+              </select>
+              <button onclick="inviteMember()" id="invite-btn"
+                class="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap">
+                Send Invite
+              </button>
+            </div>
+            <p class="text-xs text-gray-400 mt-2">Sends an invitation email. They'll set up their own password.</p>
+          </div>
+
+          <div id="team-tab-create" class="hidden">
+            <div id="create-error" class="hidden mb-2 text-xs text-red-500"></div>
+            <div id="create-success" class="hidden mb-2 text-xs text-green-600"></div>
+            <div class="space-y-2">
+              <input id="create-email" type="text" placeholder="Email or username (e.g. nazir)"
+                class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400">
+              <div class="flex gap-2">
+                <input id="create-password" type="password" placeholder="Password (6+ chars)"
+                  class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400">
+                <select id="create-role" class="border border-gray-300 rounded-lg px-2 py-2 text-sm">
+                  <option value="editor">Editor</option>
+                  <option value="admin">Admin</option>
+                </select>
+              </div>
+              <button onclick="createAccount()" id="create-btn"
+                class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg text-sm font-medium">
+                Create Account
+              </button>
+            </div>
+            <p class="text-xs text-gray-400 mt-2">Creates account directly — share email &amp; password with them.</p>
           </div>
         </div>
       </div>
 
-      <div class="flex justify-end">
-        <button type="submit" id="biz-save-btn"
-          class="bg-amber-500 hover:bg-amber-600 text-white font-semibold px-6 py-2.5 rounded-lg text-sm transition-colors">
-          Save Settings
-        </button>
-      </div>
-    </form>
-  </div>
-
-  <!-- Team Management -->
-  <div class="bg-white rounded-2xl shadow-sm border p-6">
-    <h2 class="text-lg font-bold text-gray-800 mb-1">Team Management</h2>
-    <p class="text-sm text-gray-400 mb-5">Manage who has access to your RouteBook dashboard.</p>
-
-    <!-- Current Members -->
-    <div class="mb-6">
-      <h3 class="text-sm font-semibold text-gray-600 mb-3">Current Members</h3>
-      <div id="team-members-list" class="space-y-2 text-sm text-gray-500">Loading…</div>
-    </div>
-
-    <!-- Add member tabs -->
-    <div class="border-t pt-5">
-      <div class="flex gap-1 mb-4 bg-gray-100 rounded-lg p-1">
-        <button id="tab-invite-btn" onclick="switchTeamTab('invite')"
-          class="flex-1 py-1.5 text-sm rounded-md font-medium transition-colors bg-white shadow text-gray-800">
-          Invite via Email
-        </button>
-        <button id="tab-create-btn" onclick="switchTeamTab('create')"
-          class="flex-1 py-1.5 text-sm rounded-md font-medium transition-colors text-gray-500">
-          Create Account
-        </button>
-      </div>
-
-      <!-- Invite via Email panel -->
-      <div id="team-tab-invite">
-        <div id="invite-error" class="hidden mb-2 text-xs text-red-500"></div>
-        <div id="invite-success" class="hidden mb-2 text-xs text-green-600"></div>
-        <div class="flex gap-2">
-          <input id="invite-email" type="email" placeholder="Email address"
-            class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400">
-          <select id="invite-role" class="border border-gray-300 rounded-lg px-2 py-2 text-sm">
-            <option value="editor">Editor</option>
-            <option value="admin">Admin</option>
-          </select>
-          <button onclick="inviteMember()" id="invite-btn"
-            class="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap">
-            Send Invite
-          </button>
+      <!-- ── Vehicles ── -->
+      <div id="tab-vehicles" class="tab-panel admin-only-tab hidden bg-white rounded-2xl shadow-sm border p-6">
+        <div class="mb-6">
+          <h2 class="text-lg font-bold text-gray-800">Vehicles</h2>
+          <p class="text-sm text-gray-400 mt-0.5">Register your fleet. Plate numbers appear as a required field in daily entries.</p>
         </div>
-        <p class="text-xs text-gray-400 mt-2">Sends an invitation email. They'll set up their own password.</p>
-      </div>
 
-      <!-- Create Account panel -->
-      <div id="team-tab-create" class="hidden">
-        <div id="create-error" class="hidden mb-2 text-xs text-red-500"></div>
-        <div id="create-success" class="hidden mb-2 text-xs text-green-600"></div>
-        <div class="space-y-2">
-          <input id="create-email" type="text" placeholder="Email or username (e.g. nazir)"
-            class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400">
-          <div class="flex gap-2">
-            <input id="create-password" type="password" placeholder="Password (6+ chars)"
+        <div id="vehicle-list" class="mb-5 space-y-2 text-sm text-gray-500">Loading…</div>
+
+        <div class="border-t pt-5">
+          <h3 class="text-sm font-semibold text-gray-700 mb-3">Add Vehicle</h3>
+          <div id="vehicle-error" class="hidden mb-2 text-xs text-red-500"></div>
+          <div id="vehicle-success" class="hidden mb-2 text-xs text-green-600"></div>
+          <div class="flex flex-col sm:flex-row gap-2">
+            <input id="vehicle-plate" type="text" placeholder="Plate No. (e.g. ABC-123)"
+              class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+              oninput="this.value=this.value.toUpperCase()">
+            <input id="vehicle-name" type="text" placeholder="Description (optional — e.g. Hino 300)"
               class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400">
-            <select id="create-role" class="border border-gray-300 rounded-lg px-2 py-2 text-sm">
-              <option value="editor">Editor</option>
-              <option value="admin">Admin</option>
-            </select>
+            <button onclick="addVehicle()" id="vehicle-add-btn"
+              class="bg-amber-500 hover:bg-amber-600 text-white px-5 py-2 rounded-lg text-sm font-medium whitespace-nowrap">
+              Add Vehicle
+            </button>
           </div>
-          <button onclick="createAccount()" id="create-btn"
-            class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg text-sm font-medium">
-            Create Account
-          </button>
         </div>
-        <p class="text-xs text-gray-400 mt-2">Creates account directly — share email &amp; password with them.</p>
       </div>
-    </div>
-  </div>
 
-  <!-- Vehicles -->
-  <div class="bg-white rounded-2xl shadow-sm border p-6">
-    <h2 class="text-lg font-bold text-gray-800 mb-1">Vehicles</h2>
-    <p class="text-sm text-gray-400 mb-5">Register your fleet. Vehicle plate numbers appear as a required field in the daily entry form.</p>
+      <!-- ── Password ── -->
+      <div id="tab-password" class="tab-panel hidden bg-white rounded-2xl shadow-sm border p-6">
+        <div class="mb-6">
+          <h2 class="text-lg font-bold text-gray-800">Change Password</h2>
+          <p class="text-sm text-gray-400 mt-0.5">Update your login password. You'll stay signed in after changing it.</p>
+        </div>
 
-    <div id="vehicle-list" class="mb-5 space-y-2 text-sm text-gray-500">Loading…</div>
+        <div id="pwd-error" class="hidden mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm"></div>
+        <div id="pwd-success" class="hidden mb-4 p-3 bg-green-50 border border-green-200 rounded-lg text-green-700 text-sm"></div>
 
-    <div class="border-t pt-5">
-      <h3 class="text-sm font-semibold text-gray-600 mb-3">Add Vehicle</h3>
-      <div id="vehicle-error" class="hidden mb-2 text-xs text-red-500"></div>
-      <div id="vehicle-success" class="hidden mb-2 text-xs text-green-600"></div>
-      <div class="flex flex-col sm:flex-row gap-2">
-        <input id="vehicle-plate" type="text" placeholder="Plate No. (e.g. ABC-123)"
-          class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 uppercase"
-          oninput="this.value=this.value.toUpperCase()">
-        <input id="vehicle-name" type="text" placeholder="Description (optional — e.g. Hino 300)"
-          class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400">
-        <button onclick="addVehicle()" id="vehicle-add-btn"
-          class="bg-amber-500 hover:bg-amber-600 text-white px-5 py-2 rounded-lg text-sm font-medium whitespace-nowrap">
-          Add Vehicle
-        </button>
+        <div class="max-w-sm space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">New Password</label>
+            <input id="pwd-new" type="password" minlength="6" autocomplete="new-password"
+              class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+              placeholder="At least 6 characters">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Confirm New Password</label>
+            <input id="pwd-confirm" type="password" minlength="6" autocomplete="new-password"
+              class="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+              placeholder="Re-enter new password">
+          </div>
+          <div class="pt-2 border-t">
+            <button onclick="changePassword()" id="pwd-btn"
+              class="bg-amber-500 hover:bg-amber-600 text-white font-semibold px-6 py-2.5 rounded-lg text-sm transition-colors">
+              Update Password
+            </button>
+          </div>
+        </div>
       </div>
-    </div>
-  </div>
 
+    </div><!-- /content panels -->
+  </div>
 </div>
+
+<style>
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+</style>
 
 <script>
 const API = '/.netlify/functions';
@@ -196,6 +297,7 @@ let _sb = null;
 let _session = null;
 let _orgId = null;
 let _currentUser = null;
+let _isAdmin = false;
 
 function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
@@ -225,6 +327,45 @@ function hideLoader() {
   if (el) el.style.display = 'none';
 }
 
+// ── Tab switching ─────────────────────────────────────
+function showTab(tab) {
+  // Hide all panels
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
+  document.getElementById('tab-' + tab)?.classList.remove('hidden');
+
+  // Desktop nav: active state
+  document.querySelectorAll('.nav-item').forEach(btn => {
+    const isActive = btn.dataset.tab === tab;
+    btn.className = btn.className
+      .replace(/bg-amber-50\s?|text-amber-700\s?|text-gray-600\s?|hover:bg-gray-50\s?/g, '').trim();
+    btn.className += isActive
+      ? ' bg-amber-50 text-amber-700'
+      : ' text-gray-600 hover:bg-gray-50';
+  });
+
+  // Mobile nav: active state
+  document.querySelectorAll('.mob-nav-item').forEach(btn => {
+    const isActive = btn.dataset.tab === tab;
+    btn.className = btn.className
+      .replace(/bg-amber-500\s?|text-white\s?|border-amber-500\s?|bg-white\s?|text-gray-600\s?|border-gray-200\s?|hover:border-amber-400\s?|hover:text-amber-600\s?/g, '').trim();
+    btn.className += isActive
+      ? ' bg-amber-500 text-white border-amber-500'
+      : ' bg-white text-gray-600 border-gray-200 hover:border-amber-400 hover:text-amber-600';
+  });
+}
+
+function applyRole(isAdmin) {
+  _isAdmin = isAdmin;
+  if (!isAdmin) {
+    // Hide all admin-only nav items and panels
+    document.querySelectorAll('.admin-only-tab').forEach(el => el.classList.add('hidden'));
+    showTab('password');
+  } else {
+    showTab('business');
+  }
+}
+
+// ── Init ──────────────────────────────────────────────
 async function init() {
   const cfg = await fetch(`${API}/config`).then(r => r.json()).catch(() => ({}));
   if (!cfg.supabaseUrl || !cfg.supabaseAnonKey) {
@@ -242,23 +383,22 @@ async function init() {
   try {
     const profile = await apiFetch('org-auth?action=profile');
     if (!profile || profile.needsOrg) { window.location.href = '/signup'; return; }
-    if (profile.role !== 'admin') {
-      hideLoader();
-      document.body.innerHTML = '<div class="min-h-screen flex items-center justify-center"><div class="text-center"><div class="text-4xl mb-4">🔒</div><div class="text-lg font-semibold text-gray-700">Admin Access Required</div><div class="text-sm text-gray-400 mt-2">Settings can only be changed by admins.</div><a href="/dashboard" class="mt-4 inline-block text-amber-600 hover:underline text-sm">← Back to Dashboard</a></div></div>';
-      return;
-    }
+
     _orgId = profile.org.id;
     document.getElementById('org-name-el').textContent = profile.org.name;
 
-    // Pre-fill business form
-    document.getElementById('biz-name').value    = profile.org.name    || '';
-    document.getElementById('biz-address').value = profile.org.address || '';
-    document.getElementById('biz-phone').value   = profile.org.phone   || '';
-    document.getElementById('biz-logo').value    = profile.org.logo_url|| '';
-    updateLogoDisplay(profile.org.logo_url);
+    const isAdmin = profile.role === 'admin';
+    applyRole(isAdmin);
 
-    loadTeamMembers();
-    loadVehicles();
+    if (isAdmin) {
+      document.getElementById('biz-name').value    = profile.org.name    || '';
+      document.getElementById('biz-address').value = profile.org.address || '';
+      document.getElementById('biz-phone').value   = profile.org.phone   || '';
+      document.getElementById('biz-logo').value    = profile.org.logo_url|| '';
+      updateLogoDisplay(profile.org.logo_url);
+      loadTeamMembers();
+      loadVehicles();
+    }
   } catch (e) {
     console.error('Init error:', e);
     window.location.href = '/login';
@@ -267,6 +407,7 @@ async function init() {
   hideLoader();
 }
 
+// ── Business settings ─────────────────────────────────
 function updateLogoDisplay(url) {
   const img       = document.getElementById('logo-preview-img');
   const icon      = document.getElementById('logo-preview-icon');
@@ -294,28 +435,15 @@ async function handleLogoFile(input) {
   const progEl = document.getElementById('logo-upload-progress');
   const btn    = document.getElementById('logo-upload-btn');
   errEl.classList.add('hidden');
-
-  if (!file.type.startsWith('image/')) {
-    errEl.textContent = 'Please select an image file.';
-    errEl.classList.remove('hidden');
-    return;
-  }
-  if (file.size > 2 * 1024 * 1024) {
-    errEl.textContent = 'Image must be under 2 MB.';
-    errEl.classList.remove('hidden');
-    return;
-  }
-
+  if (!file.type.startsWith('image/')) { errEl.textContent = 'Please select an image file.'; errEl.classList.remove('hidden'); return; }
+  if (file.size > 2 * 1024 * 1024) { errEl.textContent = 'Image must be under 2 MB.'; errEl.classList.remove('hidden'); return; }
   progEl.classList.remove('hidden');
   btn.disabled = true;
   try {
     const ext  = (file.name.split('.').pop() || 'jpg').toLowerCase();
     const path = `${_orgId}/logo.${ext}`;
-    const { error: upErr } = await _sb.storage
-      .from('org-logos')
-      .upload(path, file, { upsert: true, contentType: file.type });
+    const { error: upErr } = await _sb.storage.from('org-logos').upload(path, file, { upsert: true, contentType: file.type });
     if (upErr) throw upErr;
-
     const { data } = _sb.storage.from('org-logos').getPublicUrl(path);
     const url = data.publicUrl + '?v=' + Date.now();
     document.getElementById('biz-logo').value = data.publicUrl;
@@ -344,17 +472,15 @@ async function saveBizSettings(e) {
   btn.textContent = 'Saving…';
   btn.disabled = true;
   try {
-    const name    = document.getElementById('biz-name').value.trim();
-    const address = document.getElementById('biz-address').value.trim();
-    const phone   = document.getElementById('biz-phone').value.trim();
-    const logoUrl = document.getElementById('biz-logo').value.trim();
-    await apiFetch('org-auth?action=update-org', {
-      method: 'POST',
-      body: { name, address, phone, logoUrl },
-    });
+    await apiFetch('org-auth?action=update-org', { method: 'POST', body: {
+      name:    document.getElementById('biz-name').value.trim(),
+      address: document.getElementById('biz-address').value.trim(),
+      phone:   document.getElementById('biz-phone').value.trim(),
+      logoUrl: document.getElementById('biz-logo').value.trim(),
+    }});
     okEl.textContent = 'Settings saved!';
     okEl.classList.remove('hidden');
-    document.getElementById('org-name-el').textContent = name;
+    document.getElementById('org-name-el').textContent = document.getElementById('biz-name').value.trim();
   } catch (e) {
     errEl.textContent = 'Error: ' + e.message;
     errEl.classList.remove('hidden');
@@ -363,15 +489,13 @@ async function saveBizSettings(e) {
   btn.disabled = false;
 }
 
+// ── Team management ───────────────────────────────────
 async function loadTeamMembers() {
   const list = document.getElementById('team-members-list');
   list.textContent = 'Loading…';
   try {
     const members = await apiFetch('org-auth?action=members');
-    if (!members.length) {
-      list.innerHTML = '<span class="text-gray-400 text-xs">No members yet.</span>';
-      return;
-    }
+    if (!members.length) { list.innerHTML = '<span class="text-gray-400 text-xs">No members yet.</span>'; return; }
     list.innerHTML = members.map(m => `
       <div class="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2">
         <div>
@@ -392,9 +516,7 @@ async function removeMember(memberId) {
   try {
     await apiFetch('org-auth?action=remove-member', { method: 'DELETE', body: { memberId } });
     loadTeamMembers();
-  } catch (e) {
-    alert('Failed: ' + e.message);
-  }
+  } catch (e) { alert('Failed: ' + e.message); }
 }
 
 async function inviteMember() {
@@ -410,9 +532,7 @@ async function inviteMember() {
   btn.disabled = true;
   try {
     const result = await apiFetch('org-auth?action=invite', { method: 'POST', body: { email, role } });
-    okEl.textContent = result.alreadyRegistered
-      ? `${email} already has an account — added to your team.`
-      : `Invite sent to ${email}`;
+    okEl.textContent = result.alreadyRegistered ? `${email} already has an account — added to your team.` : `Invite sent to ${email}`;
     okEl.classList.remove('hidden');
     document.getElementById('invite-email').value = '';
     loadTeamMembers();
@@ -435,7 +555,6 @@ async function createAccount() {
   okEl.classList.add('hidden');
   if (!raw) { errEl.textContent = 'Email or username is required.'; errEl.classList.remove('hidden'); return; }
   if (!password || password.length < 6) { errEl.textContent = 'Password must be at least 6 characters.'; errEl.classList.remove('hidden'); return; }
-  // If plain username (no @), auto-generate an internal email
   const email = raw.includes('@') ? raw : raw + '@routebook.internal';
   const isUsername = !raw.includes('@');
   btn.textContent = 'Creating…';
@@ -471,15 +590,13 @@ function switchTeamTab(tab) {
   document.getElementById('tab-create-btn').className = !isInvite ? active : inactive;
 }
 
+// ── Vehicles ──────────────────────────────────────────
 async function loadVehicles() {
   const list = document.getElementById('vehicle-list');
   list.textContent = 'Loading…';
   try {
     const vehicles = await apiFetch('vehicles');
-    if (!vehicles.length) {
-      list.innerHTML = '<span class="text-gray-400 text-xs">No vehicles registered yet.</span>';
-      return;
-    }
+    if (!vehicles.length) { list.innerHTML = '<span class="text-gray-400 text-xs">No vehicles registered yet.</span>'; return; }
     list.innerHTML = vehicles.map(v => `
       <div class="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2.5">
         <div>
@@ -526,9 +643,37 @@ async function removeVehicle(id, plate) {
   try {
     await apiFetch(`vehicles?id=${id}`, { method: 'DELETE' });
     loadVehicles();
+  } catch (e) { alert('Failed: ' + e.message); }
+}
+
+// ── Change password ───────────────────────────────────
+async function changePassword() {
+  const npEl     = document.getElementById('pwd-new');
+  const cfEl     = document.getElementById('pwd-confirm');
+  const errEl    = document.getElementById('pwd-error');
+  const okEl     = document.getElementById('pwd-success');
+  const btn      = document.getElementById('pwd-btn');
+  errEl.classList.add('hidden');
+  okEl.classList.add('hidden');
+  const np  = npEl.value;
+  const cf  = cfEl.value;
+  if (!np || np.length < 6) { errEl.textContent = 'Password must be at least 6 characters.'; errEl.classList.remove('hidden'); return; }
+  if (np !== cf) { errEl.textContent = 'Passwords do not match.'; errEl.classList.remove('hidden'); return; }
+  btn.textContent = 'Updating…';
+  btn.disabled = true;
+  try {
+    const { error } = await _sb.auth.updateUser({ password: np });
+    if (error) throw error;
+    okEl.textContent = 'Password updated successfully!';
+    okEl.classList.remove('hidden');
+    npEl.value = '';
+    cfEl.value = '';
   } catch (e) {
-    alert('Failed: ' + e.message);
+    errEl.textContent = e.message;
+    errEl.classList.remove('hidden');
   }
+  btn.textContent = 'Update Password';
+  btn.disabled = false;
 }
 
 init();

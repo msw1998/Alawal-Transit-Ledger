@@ -87,8 +87,8 @@ body.lang-ur .ltr { direction: ltr; unicode-bidi: embed; }
   <!-- Desktop nav tabs -->
   <div class="hidden md:flex gap-1 items-center">
     <button onclick="FS=blankFS();showView('entry')" data-view="entry" class="nav-btn px-4 py-2 rounded-lg text-sm font-medium text-slate-300 hover:bg-slate-700 transition-colors" data-i18n="nav.new_entry">+ New Entry</button>
-    <button onclick="showView('daily')" data-view="daily" class="nav-btn admin-only-tab px-4 py-2 rounded-lg text-sm font-medium text-slate-300 hover:bg-slate-700 transition-colors" data-i18n="nav.daily">Daily View</button>
-    <button onclick="showView('monthly')" data-view="monthly" class="nav-btn admin-only-tab px-4 py-2 rounded-lg text-sm font-medium text-slate-300 hover:bg-slate-700 transition-colors" data-i18n="nav.dashboard">Dashboard</button>
+    <button onclick="showView('daily')" data-view="daily" class="nav-btn px-4 py-2 rounded-lg text-sm font-medium text-slate-300 hover:bg-slate-700 transition-colors" data-i18n="nav.daily">Daily View</button>
+    <button onclick="showView('monthly')" data-view="monthly" class="nav-btn px-4 py-2 rounded-lg text-sm font-medium text-slate-300 hover:bg-slate-700 transition-colors" data-i18n="nav.dashboard">Dashboard</button>
     <a href="/invoice" class="px-4 py-2 rounded-lg text-sm font-medium text-slate-300 hover:bg-slate-700 transition-colors">📄 Invoice</a>
     <div class="w-px h-5 bg-slate-600 mx-1"></div>
     <span class="sync-status text-xs font-medium text-slate-400 min-w-16 text-right"></span>
@@ -144,11 +144,11 @@ body.lang-ur .ltr { direction: ltr; unicode-bidi: embed; }
     <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4"/></svg>
     <span class="text-xs font-medium" data-i18n="tab.new_entry">New Entry</span>
   </button>
-  <button onclick="showView('daily')" data-tab="daily" class="admin-only-tab tab-btn flex-1 py-3 flex flex-col items-center gap-0.5 text-slate-400 active:bg-slate-800 transition-colors">
+  <button onclick="showView('daily')" data-tab="daily" class="tab-btn flex-1 py-3 flex flex-col items-center gap-0.5 text-slate-400 active:bg-slate-800 transition-colors">
     <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
     <span class="text-xs font-medium" data-i18n="tab.daily">Daily</span>
   </button>
-  <button onclick="showView('monthly')" data-tab="monthly" class="admin-only-tab tab-btn flex-1 py-3 flex flex-col items-center gap-0.5 text-slate-400 active:bg-slate-800 transition-colors">
+  <button onclick="showView('monthly')" data-tab="monthly" class="tab-btn flex-1 py-3 flex flex-col items-center gap-0.5 text-slate-400 active:bg-slate-800 transition-colors">
     <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
     <span class="text-xs font-medium" data-i18n="tab.dashboard">Dashboard</span>
   </button>
@@ -1726,8 +1726,10 @@ function openDay(id) {
 
       <!-- Action buttons -->
       <div class="no-print flex gap-2 mb-4 flex-wrap">
+        ${currentRole !== 'editor' ? `
         <button onclick="editDay('${id}')" class="flex-1 border px-3 py-2.5 rounded-lg text-sm font-medium hover:bg-gray-50 text-center">${t('modal.edit')}</button>
         <button onclick="delDay('${id}')" class="flex-1 border border-red-200 text-red-500 px-3 py-2.5 rounded-lg text-sm font-medium hover:bg-red-50 text-center">${t('modal.delete')}</button>
+        ` : ''}
         <button onclick="printDay()" class="flex-1 bg-slate-700 text-white px-3 py-2.5 rounded-lg text-sm font-medium hover:bg-slate-800 text-center">${t('modal.print')}</button>
       </div>
 
@@ -2549,6 +2551,7 @@ function buildMonthly(month) {
   }).join('');
 
   document.getElementById('mcontent').innerHTML = `
+    ${currentRole !== 'editor' ? `
     <div class="grid grid-cols-2 gap-3 mb-4">
       <div class="bg-white rounded-xl border p-3 text-center shadow-sm">
         <div class="text-xs text-gray-500 uppercase tracking-wide font-medium">${t('monthly.total_income')}</div>
@@ -2616,6 +2619,7 @@ function buildMonthly(month) {
       <div class="p-3 border-b font-semibold text-slate-700">${t('monthly.driver_summary')}</div>
       <div class="p-3 space-y-2">${driverCards}</div>
     </div>
+    ` : ''}
 
     <div class="bg-white rounded-xl border shadow-sm mb-4">
       <div class="p-3 border-b flex justify-between items-center">
@@ -2647,6 +2651,7 @@ function buildMonthly(month) {
       <div class="p-3 space-y-2">${dieselVendorCards}</div>
     </div>` : ''}
 
+    ${currentRole !== 'editor' ? `
     <div class="bg-white rounded-xl border shadow-sm">
       <div class="p-3 border-b flex justify-between items-center">
         <span class="font-semibold text-slate-700">${t('monthly.daily_breakdown')}</span>
@@ -2660,8 +2665,9 @@ function buildMonthly(month) {
           <div class="${tot.prof>=0?'text-blue-700':'text-red-700'}">${Rs(tot.prof)}</div>
         </div>
       </div>
-    </div>`;
+    </div>` : ''}`;
 
+  if (currentRole === 'editor') return;
   const labels = entries.map(e=>new Date(e.date+'T00:00:00').toLocaleDateString('en-PK',{day:'2-digit',month:'short'}));
   mCharts.bar = new Chart(document.getElementById('ch-bar'),{
     type:'bar', data:{ labels,
@@ -2684,8 +2690,6 @@ function buildMonthly(month) {
 
 // ─── VIEW SWITCHING ─────────────────────────────────────────
 function showView(name) {
-  // Editors cannot access restricted views
-  if (currentRole === 'editor' && (name === 'daily' || name === 'monthly')) name = 'entry';
 
   document.querySelectorAll('.view').forEach(v=>v.classList.add('hidden'));
   document.getElementById('view-'+name).classList.remove('hidden');
