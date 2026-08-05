@@ -1575,7 +1575,7 @@ function buildDailyCards(entries) {
         </div>
       </div>
       <div class="mt-2 flex gap-1.5 flex-wrap">
-        ${e.trips.map(tr=>`<span class="bg-blue-50 text-blue-700 text-xs px-2 py-0.5 rounded-full">${esc(tr.dest||'—')}</span>`).join('')}
+        ${e.trips.map(tr=>`<span class="bg-blue-50 text-blue-700 text-xs px-2 py-0.5 rounded-full">${esc(tr.cust||tr.dest||'—')}</span>`).join('')}
       </div>
       ${(() => {
         const out = (e.driverTransfers||[]).filter(x=>+x.amt>0);
@@ -1594,7 +1594,7 @@ function filterDaily(q) {
   q = q.toLowerCase();
   const entries = load().entries.filter(e=>
     e.date.includes(q)||e.driver.toLowerCase().includes(q)||
-    e.trips.some(t=>(t.dest||'').toLowerCase().includes(q))
+    e.trips.some(t=>(t.dest||'').toLowerCase().includes(q)||(t.cust||'').toLowerCase().includes(q))
   ).sort((a,b)=>b.date.localeCompare(a.date));
   document.getElementById('dlist').innerHTML = buildDailyCards(entries);
 }
@@ -2505,18 +2505,23 @@ function buildMonthly(month) {
   const prevCmap = clientBalance(prevEntries);
   const currCmap = clientBalance(entries);
   const allClientNames = new Set([...Object.keys(prevCmap), ...Object.keys(currCmap)]);
-  const totalCredit = [...allClientNames].reduce((s,c)=>{
-    return s + (prevCmap[c]?.netOutstanding||0) + (currCmap[c]?.netOutstanding||0);
-  }, 0);
+
+  // Combine raw credit/payments across both periods BEFORE clamping so that
+  // payments made this month correctly reduce the previous month carry-over.
+  const clientNet = c => Math.max(0,
+    ((prevCmap[c]?.credit||0) + (currCmap[c]?.credit||0)) -
+    ((prevCmap[c]?.payments||0) + (currCmap[c]?.payments||0))
+  );
+
+  const totalCredit = [...allClientNames].reduce((s,c) => s + clientNet(c), 0);
   const clientCards = [...allClientNames]
-    .sort((a,b)=>((prevCmap[b]?.netOutstanding||0)+(currCmap[b]?.netOutstanding||0))-((prevCmap[a]?.netOutstanding||0)+(currCmap[a]?.netOutstanding||0)))
+    .sort((a,b) => clientNet(b) - clientNet(a))
     .map(client => {
       const prevOut  = prevCmap[client]?.netOutstanding || 0;
       const inv      = currCmap[client]?.invoiced   || 0;
       const cash     = currCmap[client]?.cash       || 0;
       const payments = currCmap[client]?.payments   || 0;
-      const currNet  = currCmap[client]?.netOutstanding || 0;
-      const total    = prevOut + currNet;
+      const total    = clientNet(client);
       return `
     <div class="border rounded-lg p-3">
       <div class="flex justify-between items-start mb-2">
