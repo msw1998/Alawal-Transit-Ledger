@@ -662,9 +662,13 @@ function calc(e) {
   const diesel        = (e.diesel||[]);
   const dieselFillExp = diesel.filter(d=>d.type!=='payment').reduce((s,d)=>s+(+d.amt||0),0);
   const dieselDrvCash = diesel.filter(d=>d.type==='cash_fill'||(d.type==='payment'&&d.paidBy==='driver')).reduce((s,d)=>s+(+d.amt||0),0);
-  const oilChange        = e.oilChange;
-  const oilChangeExp     = oilChange ? (+oilChange.amt||0) : 0;
-  const oilChangeDrvCash = (oilChange && oilChange.paidBy==='driver') ? (+oilChange.amt||0) : 0;
+  const oilChange = e.oilChange;
+  let oilChangeExp = 0, oilChangeDrvCash = 0;
+  if (oilChange) {
+    const ocItems = oilChange.items || [{ amt: oilChange.amt||0, paidBy: oilChange.paidBy||'driver' }];
+    oilChangeExp     = ocItems.reduce((s,x) => s + (+x.amt||0), 0);
+    oilChangeDrvCash = ocItems.filter(x => x.paidBy==='driver').reduce((s,x) => s + (+x.amt||0), 0);
+  }
   const totalExp         = tripExp + miscExp + coExp + dieselFillExp + oilChangeExp;
   const transferOut      = (e.driverTransfers||[]).reduce((s,x)=>s+(+x.amt||0),0);
   const drvIn            = (+e.prevCash||0) + (+e.advance||0) + cashInc;
@@ -753,9 +757,11 @@ function readDOM() {
     d.amt    = isPay ? +(g(`di-pay-amt-${i}`)||{}).value||0 : +(g(`di-amt-${i}`)||{}).value||0;
   });
   if (FS.oilChange) {
-    FS.oilChange.amt    = +(g('oc-amt')||{}).value||0;
-    FS.oilChange.paidBy = (g('oc-pby')||{}).value||'driver';
-    FS.oilChange.vendor = (g('oc-vnd')||{}).value||'';
+    (FS.oilChange.items||[]).forEach((item,i) => {
+      item.desc   = (g(`oc-desc-${i}`)||{}).value||item.desc||'';
+      item.amt    = +(g(`oc-amt-${i}`)||{}).value||0;
+      item.paidBy = (g(`oc-pby-${i}`)||{}).value||'driver';
+    });
   }
 }
 
@@ -789,7 +795,20 @@ function dieselSync(i) {
 
 function toggleOilChange() {
   readDOM();
-  FS.oilChange = FS.oilChange ? null : { amt:0, paidBy:'driver', vendor:'' };
+  FS.oilChange = FS.oilChange ? null : { items:[{ desc:'', amt:0, paidBy:'driver' }] };
+  renderForm();
+}
+function addOilExpense() {
+  readDOM();
+  FS.oilChange.items.push({ desc:'', amt:0, paidBy:'driver' });
+  renderForm();
+  const last = FS.oilChange.items.length - 1;
+  _focus(`oc-desc-${last}`);
+}
+function removeOilExpense(i) {
+  readDOM();
+  FS.oilChange.items.splice(i, 1);
+  if (!FS.oilChange.items.length) FS.oilChange = null;
   renderForm();
 }
 
@@ -997,7 +1016,9 @@ function kmsSinceLastOilChange(vehicleFilter) {
   const sorted = [...pool].sort((a,b) => a.date.localeCompare(b.date));
   let lastOilDate = null;
   for (let i = sorted.length - 1; i >= 0; i--) {
-    if (sorted[i].oilChange && +sorted[i].oilChange.amt > 0) {
+    const oc = sorted[i].oilChange;
+    const ocHasAmt = oc && (oc.items ? oc.items.some(x => +x.amt > 0) : +oc.amt > 0);
+    if (ocHasAmt) {
       lastOilDate = sorted[i].date;
       break;
     }
@@ -1393,24 +1414,39 @@ function renderForm() {
         </button>
       </div>
       ${FS.oilChange ? `
-      <div class="space-y-2">
-        <div class="grid grid-cols-2 gap-2">
-          <div>
-            <label class="text-xs text-gray-500">Amount</label>
-            <input id="oc-amt" type="number" inputmode="numeric" value="${FS.oilChange.amt||''}" placeholder="0"
-              class="${INP} bg-orange-50" oninput="updateSummary()">
+      <div class="space-y-2 mt-1">
+        ${(FS.oilChange.items||[]).map((item,i) => `
+        <div class="bg-orange-50 border border-orange-100 rounded-lg p-3">
+          <div class="flex justify-between items-center mb-2">
+            <span class="text-xs font-semibold text-orange-700">Expense ${i+1}</span>
+            <button onclick="removeOilExpense(${i})" class="text-red-400 hover:text-red-600 text-xs">✕ Remove</button>
           </div>
-          <div>
-            <label class="text-xs text-gray-500">Paid By</label>
-            <select id="oc-pby" class="${INP} bg-orange-50" onchange="updateSummary()">
-              <option value="driver" ${FS.oilChange.paidBy==='driver'?'selected':''}>Driver (cash)</option>
-              <option value="company" ${FS.oilChange.paidBy==='company'?'selected':''}>Company (online)</option>
-            </select>
+          <div class="grid grid-cols-1 gap-2">
+            <div>
+              <label class="text-xs text-gray-500">Description</label>
+              <input id="oc-desc-${i}" type="text" value="${esc(item.desc||'')}" placeholder="e.g. Engine Oil, Labour, Oil Filter"
+                class="${INP} bg-white" oninput="updateSummary()">
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+              <div>
+                <label class="text-xs text-gray-500">Amount</label>
+                <input id="oc-amt-${i}" type="number" inputmode="numeric" value="${item.amt||''}" placeholder="0"
+                  class="${INP} bg-white" oninput="updateSummary()">
+              </div>
+              <div>
+                <label class="text-xs text-gray-500">Paid By</label>
+                <select id="oc-pby-${i}" class="${INP} bg-white" onchange="updateSummary()">
+                  <option value="driver" ${item.paidBy==='driver'?'selected':''}>Driver (cash)</option>
+                  <option value="company" ${item.paidBy==='company'?'selected':''}>Company</option>
+                </select>
+              </div>
+            </div>
           </div>
-        </div>
-        <input id="oc-vnd" type="text" value="${esc(FS.oilChange.vendor||'')}" placeholder="Workshop / Vendor (optional)"
-          class="${INP} bg-orange-50">
-        <div class="text-xs text-orange-600 font-medium mt-1">⚠ Resets KMs since last oil change counter</div>
+        </div>`).join('')}
+        <button onclick="addOilExpense()" class="w-full border-2 border-dashed border-orange-300 text-orange-600 hover:bg-orange-50 rounded-lg py-2 text-sm font-medium transition-colors">
+          + Add Expense
+        </button>
+        <div class="text-xs text-orange-600 font-medium">⚠ Resets KMs since last oil change counter</div>
       </div>` : ''}
     </div>
 
@@ -1821,19 +1857,33 @@ function openDay(id) {
 
       ${dieselModalHTML}
 
-      ${e.oilChange && +e.oilChange.amt > 0 ? `
-      <div class="mb-4">
-        <h3 class="font-semibold text-slate-700 mb-2">🔧 Oil Change</h3>
-        <div class="bg-orange-50 border border-orange-200 rounded-lg p-3">
-          <div class="flex justify-between items-center text-sm">
-            <div>
-              <div class="font-medium text-orange-700">${esc(e.oilChange.vendor||'Oil Change')}</div>
-              <div class="text-xs text-gray-500">${e.oilChange.paidBy==='driver'?'Paid by Driver (cash)':'Paid by Company'}</div>
-            </div>
-            <span class="font-bold text-orange-700">${Rs(e.oilChange.amt)}</span>
+      ${(() => {
+        const oc = e.oilChange;
+        if (!oc) return '';
+        const items = oc.items || [{ desc: oc.vendor||'Oil Change', amt: oc.amt||0, paidBy: oc.paidBy||'driver' }];
+        const hasAmt = items.some(x => +x.amt > 0);
+        if (!hasAmt) return '';
+        const total = items.reduce((s,x) => s + (+x.amt||0), 0);
+        return `
+        <div class="mb-4">
+          <h3 class="font-semibold text-slate-700 mb-2">🔧 Oil Change</h3>
+          <div class="bg-orange-50 border border-orange-200 rounded-lg overflow-hidden">
+            ${items.filter(x => +x.amt > 0).map(x => `
+            <div class="flex justify-between items-center text-sm px-3 py-2.5 border-b border-orange-100 last:border-0">
+              <div>
+                <div class="font-medium text-orange-700">${esc(x.desc||'Oil Change')}</div>
+                <div class="text-xs text-gray-500">${x.paidBy==='driver'?'Paid by Driver (cash)':'Paid by Company'}</div>
+              </div>
+              <span class="font-bold text-orange-700">${Rs(x.amt)}</span>
+            </div>`).join('')}
+            ${items.length > 1 ? `
+            <div class="flex justify-between items-center text-sm px-3 py-2 bg-orange-100">
+              <span class="font-semibold text-orange-800">Total</span>
+              <span class="font-bold text-orange-800">${Rs(total)}</span>
+            </div>` : ''}
           </div>
-        </div>
-      </div>` : ''}
+        </div>`;
+      })()}
 
       <!-- Driver Transfers -->
       ${(outTransfers.length || incomingTransfers.length) ? `
@@ -2286,6 +2336,66 @@ function openVendorLedger(name) {
   document.getElementById('day-modal').scrollTop=0;
 }
 
+function openOilChangeHistory() {
+  const vFilter = selectedVehicle && selectedVehicle !== 'all' ? selectedVehicle : null;
+  const pool = vFilter ? appData.entries.filter(e => e.vehicle === vFilter) : appData.entries;
+  const records = pool
+    .filter(e => {
+      const oc = e.oilChange;
+      return oc && (oc.items ? oc.items.some(x => +x.amt > 0) : +oc.amt > 0);
+    })
+    .map(e => {
+      const oc = e.oilChange;
+      const items = oc.items || [{ desc: oc.vendor||'Oil Change', amt: oc.amt||0, paidBy: oc.paidBy||'driver' }];
+      return { date: e.date, driver: e.driver, vehicle: e.vehicle||'', items };
+    })
+    .sort((a, b) => b.date.localeCompare(a.date));
+
+  const total = records.reduce((s, r) => s + r.items.reduce((ss, x) => ss + (+x.amt||0), 0), 0);
+
+  const rowsHtml = records.map(r => {
+    const ds = new Date(r.date + 'T00:00:00').toLocaleDateString('en-PK', { day: '2-digit', month: 'short', year: 'numeric' });
+    const entryTotal = r.items.reduce((s, x) => s + (+x.amt||0), 0);
+    return `
+    <div class="border-b pb-3 mb-1">
+      <div class="flex justify-between items-start py-2 gap-2">
+        <div>
+          <div class="text-xs text-gray-400">${ds}${r.driver ? ' · ' + esc(r.driver) : ''}${r.vehicle ? ' · ' + esc(r.vehicle) : ''}</div>
+          <div class="text-sm font-semibold text-slate-700">Oil Change</div>
+        </div>
+        <div class="text-sm font-bold text-orange-600 shrink-0">${Rs(entryTotal)}</div>
+      </div>
+      ${r.items.filter(x => +x.amt > 0).map(x => `
+      <div class="flex justify-between items-center text-xs px-2 py-1 bg-orange-50 rounded mb-1">
+        <span class="text-gray-600">${esc(x.desc||'Oil Change')} · <span class="text-gray-400">${x.paidBy==='driver'?'Driver':'Company'}</span></span>
+        <span class="font-semibold text-orange-700">${Rs(x.amt)}</span>
+      </div>`).join('')}
+    </div>`;
+  }).join('');
+
+  document.getElementById('day-modal-body').innerHTML = `
+    <div class="p-4 md:p-6">
+      <div class="flex justify-between items-start mb-4 pb-4 border-b">
+        <div>
+          <div class="text-xs font-bold text-orange-500 uppercase tracking-widest">🔧 Oil Change History</div>
+          <h2 class="text-lg font-bold text-slate-800 mt-1">${vFilter ? esc(vFilter) : 'All Vehicles'}</h2>
+          <div class="text-xs text-gray-400 mt-0.5">${records.length} record${records.length !== 1 ? 's' : ''}</div>
+        </div>
+        <button onclick="closeModal()" class="text-gray-400 hover:text-gray-700 text-3xl leading-none -mt-1">&times;</button>
+      </div>
+      <div class="grid grid-cols-2 gap-2 mb-4">
+        <div class="bg-orange-50 border border-orange-100 rounded-lg p-2 text-center col-span-2">
+          <div class="text-xs text-gray-400">Total Spent on Oil Changes</div>
+          <div class="font-bold text-orange-700 text-lg">${Rs(total)}</div>
+        </div>
+      </div>
+      <div>${rowsHtml || '<p class="text-sm text-gray-400 text-center py-8">No oil changes recorded yet.</p>'}</div>
+      <div class="h-6"></div>
+    </div>`;
+  document.getElementById('day-modal').classList.remove('hidden');
+  document.getElementById('day-modal').scrollTop = 0;
+}
+
 function downloadVendorLedger(name) {
   const rows = [['Date','Driver','Trip Destination','Expense Description','Credit Amount','Payment Made','Running Balance']];
   let bal=0;
@@ -2472,6 +2582,9 @@ function editDay(id) {
   if (!FS.coexp)           FS.coexp           = [];
   if (!FS.diesel)          FS.diesel          = [];
   if (FS.oilChange === undefined) FS.oilChange = null;
+  if (FS.oilChange && !FS.oilChange.items) {
+    FS.oilChange = { items:[{ desc: FS.oilChange.vendor||'Oil Change', amt: FS.oilChange.amt||0, paidBy: FS.oilChange.paidBy||'driver' }] };
+  }
   if (FS.vehicle === undefined) FS.vehicle = '';
   closeModal();
   showView('entry');
@@ -2725,7 +2838,7 @@ function buildMonthly(month) {
       <div class="bg-white rounded-xl border p-3 text-center shadow-sm">
         <div class="text-xs text-gray-500 uppercase tracking-wide font-medium">${t('monthly.trips')}</div>
         <div class="text-xl font-bold text-amber-600 mt-1">${tot.trips}</div>
-        <div class="text-xs text-gray-400">${entries.length} ${t('monthly.days')}</div>
+        <div class="text-xs text-gray-400">${entries.length} ${t('monthly.days')}${tot.trips > 0 ? ` · <span class="prv-num">${Rs(Math.round(tot.prof / tot.trips))}/trip</span>` : ''}</div>
       </div>
       ${monthKms > 0 ? `
       <div class="bg-white rounded-xl border border-indigo-100 p-3 text-center shadow-sm col-span-2">
@@ -2750,16 +2863,15 @@ function buildMonthly(month) {
       </div>
     </div>` : ''}
 
-    ${kmsSinceOilData.kms > 0 ? `
-    <div class="bg-white rounded-xl border border-orange-200 p-3 mb-4 shadow-sm">
+    <div class="bg-white rounded-xl border border-orange-200 p-3 mb-4 shadow-sm cursor-pointer hover:bg-orange-50 transition-colors" onclick="openOilChangeHistory()">
       <div class="flex justify-between items-center">
         <div>
           <div class="text-xs text-gray-500 uppercase tracking-wide font-medium">🔧 KMs Since Last Oil Change</div>
           <div class="text-xl font-bold text-orange-600 mt-1">${kmsSinceOilData.kms.toLocaleString()} km</div>
-          <div class="text-xs text-gray-400 mt-0.5">${kmsSinceOilData.lastOilDate ? `Last oil change: ${kmsSinceOilData.lastOilDate}` : 'No oil change recorded yet — showing all-time KMs'}</div>
+          <div class="text-xs text-gray-400 mt-0.5">${kmsSinceOilData.lastOilDate ? `Last oil change: ${kmsSinceOilData.lastOilDate}` : 'No oil change recorded yet'} · tap for history</div>
         </div>
       </div>
-    </div>` : ''}
+    </div>
 
     <div class="grid sm:grid-cols-2 gap-4 mb-4">
       <div class="bg-white rounded-xl border p-4 shadow-sm">
