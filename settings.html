@@ -49,6 +49,11 @@
           <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
           Vehicles
         </button>
+        <button onclick="showTab('materials')" id="mob-nav-materials" data-tab="materials"
+          class="mob-nav-item admin-only-tab flex items-center gap-1.5 whitespace-nowrap px-3 py-2 rounded-lg text-sm font-medium border transition-colors bg-white text-gray-600 border-gray-200 hover:border-amber-400 hover:text-amber-600">
+          <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 3h18M3 9h18M3 15h18M3 21h18"/></svg>
+          Materials
+        </button>
         <button onclick="showTab('password')" id="mob-nav-password" data-tab="password"
           class="mob-nav-item flex items-center gap-1.5 whitespace-nowrap px-3 py-2 rounded-lg text-sm font-medium border transition-colors bg-white text-gray-600 border-gray-200 hover:border-amber-400 hover:text-amber-600">
           <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
@@ -76,6 +81,11 @@
             class="nav-item admin-only-tab w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors text-left text-gray-600 hover:bg-gray-50">
             <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
             Vehicles
+          </button>
+          <button onclick="showTab('materials')" id="nav-materials" data-tab="materials"
+            class="nav-item admin-only-tab w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors text-left text-gray-600 hover:bg-gray-50">
+            <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 3h18M3 9h18M3 15h18M3 21h18"/></svg>
+            Materials
           </button>
           <button onclick="showTab('password')" id="nav-password" data-tab="password"
             class="nav-item w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors text-left text-gray-600 hover:bg-gray-50">
@@ -250,6 +260,31 @@
         </div>
       </div>
 
+      <!-- ── Materials ── -->
+      <div id="tab-materials" class="tab-panel admin-only-tab hidden bg-white rounded-2xl shadow-sm border p-6">
+        <div class="mb-6">
+          <h2 class="text-lg font-bold text-gray-800">Materials</h2>
+          <p class="text-sm text-gray-400 mt-0.5">Manage your material list. These appear as autocomplete suggestions in trip entries.</p>
+        </div>
+
+        <div id="material-list" class="mb-5 space-y-2 text-sm text-gray-500">Loading…</div>
+
+        <div class="border-t pt-5">
+          <h3 class="text-sm font-semibold text-gray-700 mb-3">Add Material</h3>
+          <div id="material-error" class="hidden mb-2 text-xs text-red-500"></div>
+          <div id="material-success" class="hidden mb-2 text-xs text-green-600"></div>
+          <div class="flex gap-2">
+            <input id="material-name" type="text" placeholder="e.g. Sand, Gravel, Cement"
+              class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+              onkeydown="if(event.key==='Enter')addMaterial()">
+            <button onclick="addMaterial()" id="material-add-btn"
+              class="bg-amber-500 hover:bg-amber-600 text-white px-5 py-2 rounded-lg text-sm font-medium whitespace-nowrap">
+              Add
+            </button>
+          </div>
+        </div>
+      </div>
+
       <!-- ── Password ── -->
       <div id="tab-password" class="tab-panel hidden bg-white rounded-2xl shadow-sm border p-6">
         <div class="mb-6">
@@ -398,6 +433,7 @@ async function init() {
       updateLogoDisplay(profile.org.logo_url);
       loadTeamMembers();
       loadVehicles();
+      loadMaterials();
     }
   } catch (e) {
     console.error('Init error:', e);
@@ -643,6 +679,56 @@ async function removeVehicle(id, plate) {
   try {
     await apiFetch(`vehicles?id=${id}`, { method: 'DELETE' });
     loadVehicles();
+  } catch (e) { alert('Failed: ' + e.message); }
+}
+
+// ── Materials ─────────────────────────────────────────
+async function loadMaterials() {
+  const list = document.getElementById('material-list');
+  list.textContent = 'Loading…';
+  try {
+    const materials = await apiFetch('materials');
+    if (!materials.length) { list.innerHTML = '<span class="text-gray-400 text-xs">No materials added yet.</span>'; return; }
+    list.innerHTML = materials.map(m => `
+      <div class="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2.5">
+        <span class="font-medium text-gray-800">${esc(m.name)}</span>
+        <button onclick="removeMaterial('${m.id}','${esc(m.name)}')" class="text-red-400 hover:text-red-600 text-xs ml-2">Remove</button>
+      </div>`).join('');
+  } catch {
+    list.innerHTML = '<span class="text-red-400 text-xs">Failed to load materials.</span>';
+  }
+}
+
+async function addMaterial() {
+  const nameEl = document.getElementById('material-name');
+  const errEl  = document.getElementById('material-error');
+  const okEl   = document.getElementById('material-success');
+  const btn    = document.getElementById('material-add-btn');
+  errEl.classList.add('hidden');
+  okEl.classList.add('hidden');
+  const name = nameEl.value.trim();
+  if (!name) { errEl.textContent = 'Material name is required.'; errEl.classList.remove('hidden'); return; }
+  btn.textContent = 'Adding…';
+  btn.disabled = true;
+  try {
+    await apiFetch('materials', { method: 'POST', body: { name } });
+    okEl.textContent = `"${name}" added!`;
+    okEl.classList.remove('hidden');
+    nameEl.value = '';
+    loadMaterials();
+  } catch (e) {
+    errEl.textContent = 'Failed: ' + e.message;
+    errEl.classList.remove('hidden');
+  }
+  btn.textContent = 'Add';
+  btn.disabled = false;
+}
+
+async function removeMaterial(id, name) {
+  if (!confirm(`Remove "${name}" from materials?`)) return;
+  try {
+    await apiFetch(`materials?id=${id}`, { method: 'DELETE' });
+    loadMaterials();
   } catch (e) { alert('Failed: ' + e.message); }
 }
 

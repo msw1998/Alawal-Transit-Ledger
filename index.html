@@ -24,6 +24,12 @@ input[type=number] { cursor: text; }
   .no-print { display: none !important; }
   body { background: white; }
 }
+/* Privacy mode */
+.prv-num { transition: filter 0.2s ease; cursor: pointer; }
+body.privacy-on .prv-num:not(.prv-revealed) { filter: blur(7px); user-select: none; }
+body.privacy-on .prv-num:not(.prv-revealed):hover { filter: blur(4px); opacity: 0.75; }
+body.privacy-on .prv-num.prv-revealed { filter: none; }
+#prv-toggle.active { color: #fbbf24; }
 /* Urdu / RTL mode */
 body.lang-ur, body.lang-ur input, body.lang-ur select, body.lang-ur textarea, body.lang-ur button {
   font-family: 'Noto Nastaliq Urdu', serif !important;
@@ -96,6 +102,10 @@ body.lang-ur .ltr { direction: ltr; unicode-bidi: embed; }
     <button onclick="exportData()" class="admin-only-tab px-3 py-2 rounded-lg text-sm font-medium text-amber-400 hover:bg-slate-700 transition-colors" title="Export to Excel" data-i18n="nav.export">↓ Export Excel</button>
     <div class="w-px h-5 bg-slate-600 mx-1"></div>
     <button onclick="toggleLang()" id="lang-toggle" class="px-2.5 py-1 rounded-lg text-xs font-bold border border-slate-600 text-slate-200 hover:bg-slate-700 transition-colors" data-i18n="lang.toggle">اردو</button>
+    <div class="w-px h-5 bg-slate-600 mx-1"></div>
+    <button id="prv-toggle" onclick="togglePrivacy()" title="Hide all figures" class="px-2.5 py-1.5 rounded-lg text-slate-300 hover:bg-slate-700 transition-colors" aria-label="Toggle privacy">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+    </button>
     <div class="w-px h-5 bg-slate-600 mx-1"></div>
     <!-- User menu -->
     <div class="relative">
@@ -247,7 +257,8 @@ let allOrgs      = [];     // all orgs this user belongs to
 // ─── DATA LAYER ─────────────────────────────────────────────
 const cacheKey  = () => `alawal_cache_${activeOrgId || 'default'}`;
 const API = '/.netlify/functions';
-let appData = { entries: [], drivers: ['Nazir', 'Sheer Haider'], vehicles: [] };
+let appData = { entries: [], drivers: ['Nazir', 'Sheer Haider'], vehicles: [], materials: [] };
+let privacyMode = localStorage.getItem('rb_privacy') !== '0';
 
 // Synchronous read — always returns in-memory state
 function load() { return appData; }
@@ -367,6 +378,7 @@ function applyRoleUI(isSuperAdmin) {
     document.getElementById('sa-link-mobile')?.classList.remove('hidden');
   }
 
+  applyPrivacyMode();
   renderOrgSwitcher();
 }
 
@@ -439,7 +451,7 @@ async function switchOrg(orgId) {
   }
 
   // Reload data for the new org
-  appData = { entries: [], drivers: [], vehicles: [] };
+  appData = { entries: [], drivers: [], vehicles: [], materials: [] };
   setSyncStatus('syncing');
   FS = blankFS();
   renderForm();
@@ -447,10 +459,11 @@ async function switchOrg(orgId) {
   if (active?.id === 'view-daily')   renderDaily();
   if (active?.id === 'view-monthly') renderMonthly();
   try {
-    const [entries, drivers, vehicles] = await Promise.all([apiFetch('entries'), apiFetch('drivers'), apiFetch('vehicles').catch(()=>[])]);
+    const [entries, drivers, vehicles, materials] = await Promise.all([apiFetch('entries'), apiFetch('drivers'), apiFetch('vehicles').catch(()=>[]), apiFetch('materials').catch(()=>[])]);
     appData.entries = entries;
     if (drivers.length) appData.drivers = drivers;
     appData.vehicles = vehicles || [];
+    appData.materials = materials || [];
     if (appData.vehicles.length === 1) FS.vehicle = appData.vehicles[0].plate;
     cache();
     setSyncStatus('ok');
@@ -607,15 +620,17 @@ async function initData() {
   initLang();
   // Load from cache and render immediately so the UI is ready when loader fades
   try { const c = JSON.parse(localStorage.getItem(cacheKey())); if (c?.entries) appData = c; } catch {}
+  if (!appData.materials) appData.materials = [];
   renderForm();
   hideLoader();
 
   setSyncStatus('syncing');
   try {
-    const [entries, drivers, vehicles] = await Promise.all([apiFetch('entries'), apiFetch('drivers'), apiFetch('vehicles').catch(()=>[])]);
+    const [entries, drivers, vehicles, materials] = await Promise.all([apiFetch('entries'), apiFetch('drivers'), apiFetch('vehicles').catch(()=>[]), apiFetch('materials').catch(()=>[])]);
     appData.entries = entries;
     if (drivers.length) appData.drivers = drivers;
     appData.vehicles = vehicles || [];
+    appData.materials = materials || [];
     if (appData.vehicles.length === 1) FS.vehicle = appData.vehicles[0].plate;
     cache();
     setSyncStatus('ok');
@@ -631,8 +646,8 @@ async function initData() {
 
 // ─── UTILS ──────────────────────────────────────────────────
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2);
-const Rs = n => 'Rs. ' + (n||0).toLocaleString('en-PK');
-const N  = n => (n||0).toLocaleString('en-PK');
+const Rs = n => 'Rs. ' + Math.round(n||0).toLocaleString('en-PK');
+const N  = n => Math.round(n||0).toLocaleString('en-PK');
 
 function calc(e) {
   const cashInc       = e.trips.reduce((s,t)=> t.pm==='cash' ? s+(+t.income||0) : t.pm==='partial' ? s+(+t.cashAmt||0) : s, 0);
@@ -676,9 +691,10 @@ function readDOM() {
   FS.advance  = +g('f-adv').value||0;
   FS.notes    = g('f-notes').value;
   FS.trips.forEach((t,ti)=>{
-    t.dest   = (g(`t-dest-${ti}`)||{}).value||t.dest||'';
-    t.cust   = (g(`t-cust-${ti}`)||{}).value||t.cust||'';
-    t.kms    = +(g(`t-kms-${ti}`)||{}).value||0;
+    t.dest     = (g(`t-dest-${ti}`)||{}).value||t.dest||'';
+    t.cust     = (g(`t-cust-${ti}`)||{}).value||t.cust||'';
+    t.kms      = +(g(`t-kms-${ti}`)||{}).value||0;
+    t.material = (g(`t-mat-${ti}`)||{}).value||t.material||'';
     t.income = +(g(`t-inc-${ti}`)||{}).value||0;
     const incCfW = g(`t-inc-cf-wrap-${ti}`);
     t.incCfMode = !!(incCfW && !incCfW.classList.contains('hidden'));
@@ -745,7 +761,7 @@ function readDOM() {
 
 function _focus(id) { const el=document.getElementById(id); if(el){el.focus();el.scrollIntoView({block:'nearest'});} }
 
-function addTrip()    { readDOM(); FS.trips.push({id:uid(),dest:'',cust:'',kms:0,income:0,incCfMode:false,incCfQty:0,incCfRate:0,pm:'cash',exp:[{desc:'Jhampir Dhakka Loading',amt:0,mode:'cash',vendor:''},{desc:'Royalty',amt:0,mode:'cash',vendor:''},{desc:'Driver Trip Commission',amt:0,mode:'cash',vendor:''},{desc:'Toll Plaza',amt:0,mode:'cash',vendor:''}]}); renderForm(); _focus('t-dest-'+(FS.trips.length-1)); }
+function addTrip()    { readDOM(); FS.trips.push({id:uid(),dest:'',cust:'',kms:0,material:'',income:0,incCfMode:false,incCfQty:0,incCfRate:0,pm:'cash',exp:[{desc:'Jhampir Dhakka Loading',amt:0,mode:'cash',vendor:''},{desc:'Royalty',amt:0,mode:'cash',vendor:''},{desc:'Driver Trip Commission',amt:0,mode:'cash',vendor:''},{desc:'Toll Plaza',amt:0,mode:'cash',vendor:''}]}); renderForm(); _focus('t-dest-'+(FS.trips.length-1)); }
 function remTrip(i)   { readDOM(); FS.trips.splice(i,1); renderForm(); }
 function addTE(ti)    { readDOM(); FS.trips[ti].exp.push({desc:'',amt:0,mode:'cash',vendor:'',cfMode:false,cfQty:0,cfRate:0}); renderForm(); _focus('t-ed-'+ti+'-'+(FS.trips[ti].exp.length-1)); }
 function remTE(ti,ei) { readDOM(); FS.trips[ti].exp.splice(ei,1); renderForm(); }
@@ -829,10 +845,10 @@ function updateSummary() {
   el('s-exp2').textContent  = `Trip Cash: ${N(c.tripExpCash)}${c.tripExpCredit?` · Credit: ${N(c.tripExpCredit)}`:''} · Misc: ${N(c.miscExp)} · Co.: ${N(c.coExp)}${c.dieselFillExp?` · Diesel: ${N(c.dieselFillExp)}`:''}${c.oilChangeExp?` · Oil: ${N(c.oilChangeExp)}`:''}`;
 
   el('s-prof').textContent  = Rs(c.profit);
-  el('s-prof').className    = `text-xl font-bold mt-1 ${c.profit>=0?'text-blue-700':'text-red-600'}`;
+  el('s-prof').className    = `text-xl font-bold mt-1 prv-num ${c.profit>=0?'text-blue-700':'text-red-600'}`;
   el('s-drvin').textContent = Rs(c.drvIn);
   el('s-drvrem').textContent= Rs(c.drvRem);
-  el('s-drvrem').className  = `text-xl font-bold mt-1 ${c.drvRem>=0?'text-amber-700':'text-red-600'}`;
+  el('s-drvrem').className  = `text-xl font-bold mt-1 prv-num ${c.drvRem>=0?'text-amber-700':'text-red-600'}`;
   FS.trips.forEach((trip,ti)=>{
     const tot = trip.exp.reduce((s,x)=>s+(+x.amt||0),0);
     const e2  = document.getElementById(`t-tot-${ti}`);
@@ -1172,6 +1188,10 @@ function renderForm() {
           <input id="t-kms-${ti}" type="number" inputmode="numeric" value="${trip.kms||''}" placeholder="0" class="${INP}" oninput="updateSummary()">
         </div>
       </div>
+      <div class="mb-3">
+        <label class="text-xs font-medium text-gray-500">Material</label>
+        <input id="t-mat-${ti}" type="text" value="${esc(trip.material||'')}" placeholder="e.g. Sand, Gravel…" list="mat-list" class="${INP}" oninput="updateSummary()">
+      </div>
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
         <div>
           <label class="text-xs font-medium text-gray-500">${t('field.income')}</label>
@@ -1313,6 +1333,7 @@ function renderForm() {
 
     <datalist id="loc-list">${locationOpts}</datalist>
     <datalist id="cust-list">${clientOpts}</datalist>
+    <datalist id="mat-list">${(data.materials||[]).map(m=>`<option value="${esc(m.name)}">`).join('')}</datalist>
     <datalist id="vendor-list">${getVendors().map(v=>`<option value="${esc(v)}">`).join('')}</datalist>
     <datalist id="diesel-vendor-list">${getDieselVendors().map(v=>`<option value="${esc(v)}">`).join('')}</datalist>
 
@@ -1509,24 +1530,24 @@ function renderForm() {
       <div class="grid grid-cols-2 gap-3 mb-4">
         <div class="bg-green-50 border border-green-200 rounded-lg p-3 text-center">
           <div class="text-xs text-green-600 font-medium uppercase tracking-wide">${t('summary.income')}</div>
-          <div id="s-inc" class="text-xl font-bold text-green-700 mt-1">${Rs(c.totalInc)}</div>
+          <div id="s-inc" class="text-xl font-bold text-green-700 mt-1 prv-num">${Rs(c.totalInc)}</div>
         </div>
         <div class="bg-red-50 border border-red-200 rounded-lg p-3 text-center">
           <div class="text-xs text-red-600 font-medium uppercase tracking-wide">${t('summary.expenses')}</div>
-          <div id="s-exp" class="text-xl font-bold text-red-600 mt-1">${Rs(c.totalExp)}</div>
+          <div id="s-exp" class="text-xl font-bold text-red-600 mt-1 prv-num">${Rs(c.totalExp)}</div>
           <div id="s-exp2" class="text-xs text-red-400 mt-0.5 leading-tight">Trip: ${N(c.tripExp)} · Misc: ${N(c.miscExp)} · Co.: ${N(c.coExp)}${c.dieselFillExp?` · Diesel: ${N(c.dieselFillExp)}`:''}${c.oilChangeExp?` · Oil: ${N(c.oilChangeExp)}`:''}</div>
         </div>
         <div class="bg-blue-50 border border-blue-200 rounded-lg p-3 text-center">
           <div class="text-xs text-blue-600 font-medium uppercase tracking-wide">${t('summary.profit')}</div>
-          <div id="s-prof" class="text-xl font-bold ${c.profit>=0?'text-blue-700':'text-red-600'} mt-1">${Rs(c.profit)}</div>
+          <div id="s-prof" class="text-xl font-bold ${c.profit>=0?'text-blue-700':'text-red-600'} mt-1 prv-num">${Rs(c.profit)}</div>
         </div>
         <div class="bg-amber-50 border border-amber-200 rounded-lg p-3 text-center">
           <div class="text-xs text-amber-600 font-medium uppercase tracking-wide">${t('summary.drv_in')}</div>
-          <div id="s-drvin" class="text-xl font-bold text-amber-700 mt-1">${Rs(c.drvIn)}</div>
+          <div id="s-drvin" class="text-xl font-bold text-amber-700 mt-1 prv-num">${Rs(c.drvIn)}</div>
         </div>
         <div class="bg-slate-50 border border-slate-200 rounded-lg p-3 text-center col-span-2">
           <div class="text-xs text-slate-600 font-medium uppercase tracking-wide">${t('summary.drv_rem')}</div>
-          <div id="s-drvrem" class="text-xl font-bold ${c.drvRem>=0?'text-amber-700':'text-red-600'} mt-1">${Rs(c.drvRem)}</div>
+          <div id="s-drvrem" class="text-xl font-bold ${c.drvRem>=0?'text-amber-700':'text-red-600'} mt-1 prv-num">${Rs(c.drvRem)}</div>
         </div>
       </div>
       <div>
@@ -1910,7 +1931,7 @@ function openClientLedger(name) {
       if      (t.pm==='cash')    { cash=inc; }
       else if (t.pm==='partial') { cash=+t.cashAmt||0; credit=Math.max(0,inc-cash); }
       else                       { credit=inc; }
-      rows.push({ date:e.date, type:'trip', driver:e.driver, dest:t.dest||'—', inc, cash, credit, pm:t.pm });
+      rows.push({ date:e.date, type:'trip', driver:e.driver, dest:t.dest||'—', material:t.material||'', vehicle:e.vehicle||'', inc, cash, credit, pm:t.pm });
     });
     (e.clientPayments||[]).forEach(p => {
       if ((p.client?.trim()||'(No Client)') !== name) return;
@@ -1938,6 +1959,7 @@ function openClientLedger(name) {
         <div class="flex-1 min-w-0">
           <div class="text-xs text-gray-400">${ds} · ${esc(r.driver)}</div>
           <div class="text-sm font-semibold text-slate-700 truncate">${esc(r.dest)}</div>
+          ${r.material ? `<div class="text-xs text-indigo-500 mt-0.5 truncate">${esc(r.material)}</div>` : ''}
           <div class="text-xs mt-0.5 ${r.pm==='cash'?'text-green-600':r.pm==='partial'?'text-blue-600':'text-amber-600'}">
             ${r.pm==='cash'?t('ledger.cash')+': '+Rs(r.cash):r.pm==='partial'?t('ledger.partial_cash')+Rs(r.cash)+t('ledger.credit_lbl')+Rs(r.credit):t('ledger.full_credit')}
           </div>
@@ -1963,13 +1985,15 @@ function openClientLedger(name) {
   }).join('');
 
   const safeN = encodeURIComponent(name);
+  const tripDates = rows.filter(r => r.type==='trip').map(r => r.date);
+  const invFrom = tripDates.length ? tripDates.reduce((a,b)=>a<b?a:b) : new Date().toISOString().slice(0,10);
+  const invTo   = tripDates.length ? tripDates.reduce((a,b)=>a>b?a:b) : new Date().toISOString().slice(0,10);
   document.getElementById('day-modal-body').innerHTML = `
     <div class="p-4 md:p-6">
-      <div class="flex justify-between items-start mb-4 pb-4 border-b">
+      <div class="flex justify-between items-start mb-3">
         <div>
           <div class="text-xs font-bold text-amber-600 uppercase tracking-widest">${t('ledger.client')}</div>
           <h2 class="text-lg font-bold text-slate-800 mt-1">${esc(name)}</h2>
-          <div class="text-xs text-gray-400 mt-0.5">${t('ledger.all_time')}</div>
         </div>
         <div class="flex items-center gap-2">
           <button onclick="downloadClientLedger(decodeURIComponent('${safeN}'))"
@@ -1978,6 +2002,16 @@ function openClientLedger(name) {
           </button>
           <button onclick="closeModal()" class="text-gray-400 hover:text-gray-700 text-3xl leading-none -mt-1">&times;</button>
         </div>
+      </div>
+      <div class="flex flex-wrap gap-2 items-center mb-4 pb-4 border-b">
+        <span class="text-xs font-semibold text-gray-500">Invoice period:</span>
+        <input type="date" id="inv-from" value="${invFrom}" class="border rounded-lg px-2 py-1 text-xs text-gray-700 focus:outline-none focus:ring-1 focus:ring-indigo-400">
+        <span class="text-xs text-gray-400">to</span>
+        <input type="date" id="inv-to" value="${invTo}" class="border rounded-lg px-2 py-1 text-xs text-gray-700 focus:outline-none focus:ring-1 focus:ring-indigo-400">
+        <button onclick="generateClientInvoice(decodeURIComponent('${safeN}'),document.getElementById('inv-from').value,document.getElementById('inv-to').value)"
+          class="bg-indigo-600 text-white px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-indigo-700 flex items-center gap-1 ml-auto">
+          📄 Export Invoice
+        </button>
       </div>
       <div class="grid grid-cols-3 gap-2 mb-4">
         <div class="bg-gray-50 border rounded-lg p-2 text-center">
@@ -1998,6 +2032,124 @@ function openClientLedger(name) {
     </div>`;
   document.getElementById('day-modal').classList.remove('hidden');
   document.getElementById('day-modal').scrollTop=0;
+}
+
+function generateClientInvoice(clientName, fromDate, toDate) {
+  if (!fromDate || !toDate) { alert('Please select a date range.'); return; }
+  const org = currentOrg || {};
+  const e2 = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  const fmtD = d => { try { return new Date(d+'T00:00:00').toLocaleDateString('en-PK',{day:'2-digit',month:'short',year:'numeric'}); } catch { return d; } };
+  const fmtRs = n => 'Rs. ' + (+n||0).toLocaleString('en-PK');
+
+  const rows = [];
+  appData.entries.filter(e=>e.date>=fromDate&&e.date<=toDate).sort((a,b)=>a.date.localeCompare(b.date)).forEach(e=>{
+    e.trips.forEach(t=>{
+      if ((t.cust?.trim()||'(No Client)') !== clientName) return;
+      const inc = +t.income||0;
+      let paid=0, due=0;
+      if (t.pm==='cash') { paid=inc; }
+      else if (t.pm==='partial') { paid=+t.cashAmt||0; due=Math.max(0,inc-paid); }
+      else { due=inc; }
+      rows.push({ date:e.date, vehicle:e.vehicle||'', dest:t.dest||'', material:t.material||'', cfMode:!!t.incCfMode, cfQty:+t.incCfQty||0, cfRate:+t.incCfRate||0, amount:inc, paid, due });
+    });
+  });
+
+  const payments = [];
+  appData.entries.filter(e=>e.date>=fromDate&&e.date<=toDate).sort((a,b)=>a.date.localeCompare(b.date)).forEach(e=>{
+    (e.clientPayments||[]).forEach(p=>{
+      if ((p.client?.trim()||'') !== clientName) return;
+      const amt = +p.amount||0; if (!amt) return;
+      payments.push({ date:e.date, desc:p.desc||'', mode:p.mode||'', amount:amt });
+    });
+  });
+
+  const totalInvoiced = rows.reduce((s,r)=>s+r.amount,0);
+  const totalPaid     = rows.reduce((s,r)=>s+r.paid,0) + payments.reduce((s,p)=>s+p.amount,0);
+  const totalDue      = Math.max(0, totalInvoiced - totalPaid);
+
+  const tripRows = rows.length ? rows.map((r,i)=>`
+    <tr>
+      <td>${i+1}</td><td>${fmtD(r.date)}</td><td>${e2(r.vehicle)||'—'}</td>
+      <td>${e2(r.dest)||'—'}</td><td>${e2(r.material)||'—'}</td>
+      <td style="text-align:center">${r.cfMode?r.cfQty.toLocaleString('en-PK'):''}</td>
+      <td style="text-align:center">${r.cfMode?fmtRs(r.cfRate):''}</td>
+      <td style="text-align:right">${fmtRs(r.amount)}</td>
+      <td style="text-align:right">${r.paid?fmtRs(r.paid):'—'}</td>
+      <td style="text-align:right;${r.due?'color:#dc2626;font-weight:600':''}">${r.due?fmtRs(r.due):'—'}</td>
+    </tr>`).join('')
+    : `<tr><td colspan="10" style="text-align:center;color:#94a3b8;font-style:italic;padding:16px">No trips in this period</td></tr>`;
+
+  const payRows = payments.length ? payments.map(p=>`
+    <tr>
+      <td>${fmtD(p.date)}</td><td>${e2(p.desc)||'Payment received'}</td>
+      <td>${p.mode==='bank'?'Bank Transfer':p.mode==='expense'?'On behalf':'Cash'}</td>
+      <td style="text-align:right;color:#0f766e;font-weight:600">${fmtRs(p.amount)}</td>
+    </tr>`).join('') : '';
+
+  const today = new Date().toISOString().slice(0,10);
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+<title>Invoice – ${e2(clientName)}</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Segoe UI',Arial,sans-serif;font-size:13px;color:#1e293b;background:#f8fafc}
+.page{max-width:950px;margin:0 auto;padding:32px;background:white}
+.hdr{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:26px;padding-bottom:18px;border-bottom:3px solid #f59e0b}
+.org-logo{height:52px;object-fit:contain}.org-info{text-align:right}
+.org-name{font-size:19px;font-weight:700;color:#0f172a}.org-det{font-size:11px;color:#64748b;margin-top:3px}
+.inv-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px}
+.inv-h{font-size:22px;font-weight:800;color:#0f172a;letter-spacing:-0.5px}
+.inv-meta{text-align:right;font-size:12px;color:#475569}.inv-meta strong{color:#0f172a}
+.cbox{background:#fffbeb;border:1px solid #fde68a;border-left:4px solid #f59e0b;border-radius:8px;padding:14px 18px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:center}
+.cname{font-size:17px;font-weight:700;color:#0f172a}.csub{font-size:12px;color:#64748b;margin-top:3px}
+.slabel{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:1px;color:#64748b;margin:16px 0 7px}
+table{width:100%;border-collapse:collapse;margin-bottom:4px}
+th{background:#0f172a;color:white;font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;padding:8px 9px;text-align:left}
+td{padding:8px 9px;border-bottom:1px solid #f1f5f9;font-size:12px}tr:last-child td{border-bottom:none}tr:nth-child(even) td{background:#f8fafc}
+.summary{background:#0f172a;color:white;border-radius:10px;padding:17px 20px;display:flex;justify-content:space-evenly;align-items:center;margin-top:20px;gap:12px}
+.si{text-align:center}.sl{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#94a3b8}.sv{font-size:17px;font-weight:700;margin-top:4px}
+.sd{width:1px;background:#334155;align-self:stretch}
+.footer{margin-top:26px;padding-top:13px;border-top:1px solid #e2e8f0;display:flex;justify-content:space-between;font-size:11px;color:#94a3b8}
+.pbtn{display:block;margin:22px auto 0;padding:11px 32px;background:#f59e0b;color:white;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer}
+@media print{.pbtn{display:none}.page{padding:16px;max-width:100%}th{background:#0f172a!important;color:white!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}.summary{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+</style></head><body><div class="page">
+<div class="hdr">
+  <div>${org.logo_url?`<img src="${e2(org.logo_url)}" class="org-logo" alt="">`:`<div style="font-size:22px;font-weight:800;color:#f59e0b">ROUTEBOOK</div>`}</div>
+  <div class="org-info"><div class="org-name">${e2(org.name||'RouteBook')}</div>${org.address?`<div class="org-det">${e2(org.address)}</div>`:''}${org.phone?`<div class="org-det">${e2(org.phone)}</div>`:''}</div>
+</div>
+<div class="inv-row">
+  <div class="inv-h">DELIVERY INVOICE</div>
+  <div class="inv-meta"><div>Period: <strong>${fmtD(fromDate)} – ${fmtD(toDate)}</strong></div><div>Generated: <strong>${fmtD(today)}</strong></div></div>
+</div>
+<div class="cbox">
+  <div><div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#92400e;font-weight:600">Bill To</div>
+  <div class="cname">${e2(clientName)}</div>
+  <div class="csub">${rows.length} delivery trip${rows.length!==1?'s':''} · ${fmtD(fromDate)} to ${fmtD(toDate)}</div></div>
+  <div style="text-align:right"><div style="font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#92400e">Balance Due</div>
+  <div style="font-size:20px;font-weight:800;color:${totalDue>0?'#dc2626':'#16a34a'};margin-top:4px">${totalDue>0?fmtRs(totalDue):'Cleared'}</div></div>
+</div>
+<div class="slabel">Delivery Details</div>
+<table><thead><tr>
+  <th>#</th><th>Date</th><th>Vehicle</th><th>Destination</th><th>Material</th>
+  <th style="text-align:center">CF Qty</th><th style="text-align:center">Rate/CF</th>
+  <th style="text-align:right">Amount</th><th style="text-align:right">Paid</th><th style="text-align:right">Due</th>
+</tr></thead><tbody>${tripRows}</tbody></table>
+${payments.length?`<div class="slabel">Payments Received</div>
+<table><thead><tr><th>Date</th><th>Description</th><th>Mode</th><th style="text-align:right">Amount</th></tr></thead>
+<tbody>${payRows}</tbody></table>`:''}
+<div class="summary">
+  <div class="si"><div class="sl">Total Invoiced</div><div class="sv" style="color:#fbbf24">${fmtRs(totalInvoiced)}</div></div>
+  <div class="sd"></div>
+  <div class="si"><div class="sl">Total Received</div><div class="sv" style="color:#4ade80">${fmtRs(totalPaid)}</div></div>
+  <div class="sd"></div>
+  <div class="si"><div class="sl">Balance Due</div><div class="sv" style="color:${totalDue>0?'#f87171':'#4ade80'}">${totalDue>0?fmtRs(totalDue):'Cleared'}</div></div>
+</div>
+<div class="footer"><div>Invoice generated using RouteBook by Peartech Solutions</div><div>Printed: ${fmtD(today)}</div></div>
+<button class="pbtn" onclick="window.print()">🖨 Print / Save as PDF</button>
+</div></body></html>`;
+
+  const w = window.open('', '_blank', 'width=980,height=720');
+  if (!w) { alert('Allow pop-ups in your browser to export the invoice.'); return; }
+  w.document.write(html);
+  w.document.close();
 }
 
 function downloadClientLedger(name) {
@@ -2432,9 +2584,9 @@ function buildMonthly(month) {
     <div class="border rounded-lg p-3">
       <div class="font-semibold text-slate-700 mb-2">${esc(drv)} <span class="text-xs text-gray-400 font-normal">${d.days} ${t('lbl.days')} · ${d.trips} ${t('lbl.trips')}</span></div>
       <div class="grid grid-cols-3 gap-2 text-center text-sm">
-        <div><div class="text-xs text-gray-400">${t('lbl.income')}</div><div class="font-bold text-green-600">${Rs(d.inc)}</div></div>
-        <div><div class="text-xs text-gray-400">${t('lbl.expenses')}</div><div class="font-bold text-red-500">${Rs(d.exp)}</div></div>
-        <div><div class="text-xs text-gray-400">${t('lbl.profit')}</div><div class="font-bold ${d.prof>=0?'text-blue-700':'text-red-700'}">${Rs(d.prof)}</div></div>
+        <div><div class="text-xs text-gray-400">${t('lbl.income')}</div><div class="font-bold text-green-600 prv-num">${Rs(d.inc)}</div></div>
+        <div><div class="text-xs text-gray-400">${t('lbl.expenses')}</div><div class="font-bold text-red-500 prv-num">${Rs(d.exp)}</div></div>
+        <div><div class="text-xs text-gray-400">${t('lbl.profit')}</div><div class="font-bold ${d.prof>=0?'text-blue-700':'text-red-700'} prv-num">${Rs(d.prof)}</div></div>
       </div>
     </div>`).join('');
 
@@ -2560,15 +2712,15 @@ function buildMonthly(month) {
     <div class="grid grid-cols-2 gap-3 mb-4">
       <div class="bg-white rounded-xl border p-3 text-center shadow-sm">
         <div class="text-xs text-gray-500 uppercase tracking-wide font-medium">${t('monthly.total_income')}</div>
-        <div class="text-xl font-bold text-green-600 mt-1">${Rs(tot.inc)}</div>
+        <div class="text-xl font-bold text-green-600 mt-1 prv-num">${Rs(tot.inc)}</div>
       </div>
       <div class="bg-white rounded-xl border p-3 text-center shadow-sm">
         <div class="text-xs text-gray-500 uppercase tracking-wide font-medium">${t('monthly.total_exp')}</div>
-        <div class="text-xl font-bold text-red-500 mt-1">${Rs(tot.exp)}</div>
+        <div class="text-xl font-bold text-red-500 mt-1 prv-num">${Rs(tot.exp)}</div>
       </div>
       <div class="bg-white rounded-xl border p-3 text-center shadow-sm">
         <div class="text-xs text-gray-500 uppercase tracking-wide font-medium">${t('monthly.profit')}</div>
-        <div class="text-xl font-bold ${tot.prof>=0?'text-blue-700':'text-red-600'} mt-1">${Rs(tot.prof)}</div>
+        <div class="text-xl font-bold ${tot.prof>=0?'text-blue-700':'text-red-600'} mt-1 prv-num">${Rs(tot.prof)}</div>
       </div>
       <div class="bg-white rounded-xl border p-3 text-center shadow-sm">
         <div class="text-xs text-gray-500 uppercase tracking-wide font-medium">${t('monthly.trips')}</div>
@@ -2593,7 +2745,7 @@ function buildMonthly(month) {
         </div>
         <div class="text-right">
           <div class="text-xs text-gray-500">Credit Due (All-time)</div>
-          <div class="text-xl font-bold ${totalDieselDue>0?'text-amber-700':'text-green-600'} mt-1">${totalDieselDue>0?Rs(totalDieselDue):'Cleared'}</div>
+          <div class="text-xl font-bold ${totalDieselDue>0?'text-amber-700':'text-green-600'} mt-1 prv-num">${totalDieselDue>0?Rs(totalDieselDue):'Cleared'}</div>
         </div>
       </div>
     </div>` : ''}
@@ -3020,6 +3172,35 @@ function setLang(lang) {
 }
 
 function toggleLang() { setLang(currentLang === 'en' ? 'ur' : 'en'); }
+
+// ── Privacy mode ─────────────────────────────────────
+function applyPrivacyMode() {
+  document.body.classList.toggle('privacy-on', privacyMode);
+  document.querySelectorAll('.prv-revealed').forEach(el => el.classList.remove('prv-revealed'));
+  const btn = document.getElementById('prv-toggle');
+  if (!btn) return;
+  if (privacyMode) {
+    btn.classList.add('active');
+    btn.title = 'Show all figures';
+    btn.innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17.94 17.94A10.07 10.07 0 0112 20c-7 0-11-8-11-8a18.45 18.45 0 015.06-5.94M9.9 4.24A9.12 9.12 0 0112 4c7 0 11 8 11 8a18.5 18.5 0 01-2.16 3.19m-6.72-1.07a3 3 0 11-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>`;
+  } else {
+    btn.classList.remove('active');
+    btn.title = 'Hide all figures';
+    btn.innerHTML = `<svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>`;
+  }
+}
+function togglePrivacy() {
+  privacyMode = !privacyMode;
+  localStorage.setItem('rb_privacy', privacyMode ? '1' : '0');
+  applyPrivacyMode();
+}
+document.addEventListener('click', e => {
+  if (!privacyMode) return;
+  const num = e.target.closest('.prv-num');
+  if (!num) return;
+  e.stopPropagation();
+  num.classList.toggle('prv-revealed');
+});
 
 // ─── ESCAPE ─────────────────────────────────────────────────
 function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
