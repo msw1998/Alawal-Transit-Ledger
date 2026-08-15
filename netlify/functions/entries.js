@@ -18,12 +18,12 @@ async function getAuthContext(event) {
   const { data: { user }, error } = await supabase.auth.getUser(auth.slice(7));
   if (error || !user) return null;
   const requestedOrgId = event.headers['x-org-id'];
-  let query = supabase.from('org_members').select('org_id, role').eq('user_id', user.id);
+  let query = supabase.from('org_members').select('org_id, role, allowed_vehicles').eq('user_id', user.id);
   if (requestedOrgId) query = query.eq('org_id', requestedOrgId);
   const { data: members } = await query.order('created_at', { ascending: true }).limit(1);
   const member = members?.[0] || null;
   if (!member) return null;
-  return { userId: user.id, orgId: member.org_id, role: member.role };
+  return { userId: user.id, orgId: member.org_id, role: member.role, allowedVehicles: member.allowed_vehicles || [] };
 }
 
 exports.handler = async (event) => {
@@ -40,10 +40,24 @@ exports.handler = async (event) => {
         .eq('org_id', ctx.orgId)
         .order('date', { ascending: false });
       if (error) throw error;
-      return { statusCode: 200, headers: HEADERS, body: JSON.stringify(data.map(r => r.data)) };
+
+      let entries = data.map(r => r.data);
+
+      if (ctx.role === 'investor') {
+        const vehicleIds = ctx.allowedVehicles;
+        if (!vehicleIds.length) return { statusCode: 200, headers: HEADERS, body: JSON.stringify([]) };
+        const { data: vehicles } = await supabase.from('vehicles').select('id, plate').in('id', vehicleIds);
+        const plates = new Set((vehicles || []).map(v => v.plate));
+        entries = entries.filter(e => plates.has(e.vehicle || ''));
+      }
+
+      return { statusCode: 200, headers: HEADERS, body: JSON.stringify(entries) };
     }
 
     if (event.httpMethod === 'POST') {
+      if (ctx.role === 'investor') {
+        return { statusCode: 403, headers: HEADERS, body: JSON.stringify({ error: 'Investors cannot create or edit entries' }) };
+      }
       const entry = JSON.parse(event.body);
       const { error } = await supabase.from('entries').upsert({
         id:         entry.id,
@@ -58,7 +72,6 @@ exports.handler = async (event) => {
     }
 
     if (event.httpMethod === 'DELETE') {
-      // Editors cannot delete
       if (ctx.role !== 'admin') {
         return { statusCode: 403, headers: HEADERS, body: JSON.stringify({ error: 'Admins only' }) };
       }

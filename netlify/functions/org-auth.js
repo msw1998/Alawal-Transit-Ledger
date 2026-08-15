@@ -15,7 +15,8 @@ const HEADERS = {
 const ok  = (body) => ({ statusCode: 200, headers: HEADERS, body: JSON.stringify(body) });
 const err = (code, msg) => ({ statusCode: code, headers: HEADERS, body: JSON.stringify({ error: msg }) });
 
-// Extract + verify JWT → return Supabase user or null
+const VALID_ROLES = ['admin', 'editor', 'investor'];
+
 async function getUser(event) {
   const auth = event.headers.authorization || event.headers.Authorization || '';
   if (!auth.startsWith('Bearer ')) return null;
@@ -23,16 +24,21 @@ async function getUser(event) {
   return (error || !user) ? null : user;
 }
 
-// Get user + their org membership context
 async function getCtx(event) {
   const user = await getUser(event);
   if (!user) return null;
   const requestedOrgId = event.headers['x-org-id'];
-  let query = supabase.from('org_members').select('org_id, role').eq('user_id', user.id);
+  let query = supabase.from('org_members').select('org_id, role, allowed_vehicles').eq('user_id', user.id);
   if (requestedOrgId) query = query.eq('org_id', requestedOrgId);
   const { data: members } = await query.order('created_at', { ascending: true }).limit(1);
   const member = members?.[0] || null;
-  return { userId: user.id, email: user.email, orgId: member?.org_id || null, role: member?.role || null };
+  return {
+    userId: user.id,
+    email: user.email,
+    orgId: member?.org_id || null,
+    role: member?.role || null,
+    allowedVehicles: member?.allowed_vehicles || [],
+  };
 }
 
 exports.handler = async (event) => {
@@ -42,13 +48,12 @@ exports.handler = async (event) => {
 
   try {
 
-    // ── GET profile ─────────────────────────────────────────
+    // ── GET profile ──────────────────────────────────────────
     if (action === 'profile' && event.httpMethod === 'GET') {
       const ctx = await getCtx(event);
       if (!ctx) return err(401, 'Unauthorized');
       if (!ctx.orgId) return ok({ needsOrg: true });
 
-      // Fetch all orgs this user belongs to (for org switcher)
       const { data: memberships } = await supabase
         .from('org_members').select('org_id, role').eq('user_id', ctx.userId);
       const orgIds = (memberships || []).map(m => m.org_id);
@@ -64,33 +69,27 @@ exports.handler = async (event) => {
         role: (memberships || []).find(m => m.org_id === o.id)?.role,
       }));
 
-      return ok({ org, role: ctx.role, isSuperAdmin: !!sa, allOrgs });
+      return ok({ org, role: ctx.role, isSuperAdmin: !!sa, allOrgs, allowedVehicles: ctx.allowedVehicles });
     }
 
-    // ── POST create-org (first-time setup after signup) ─────
+    // ── POST create-org ──────────────────────────────────────
     if (action === 'create-org' && event.httpMethod === 'POST') {
       const user = await getUser(event);
       if (!user) return err(401, 'Unauthorized');
-
       const { orgName, contactName } = JSON.parse(event.body || '{}');
       if (!orgName?.trim()) return err(400, 'Business name is required');
-
-      // Prevent duplicate orgs for same user
       const { data: existing } = await supabase
         .from('org_members').select('org_id').eq('user_id', user.id).single();
       if (existing) return err(400, 'You already have an organization');
-
       const { data: org, error: orgErr } = await supabase
         .from('organizations')
         .insert({ name: orgName.trim(), owner_id: user.id, contact_email: user.email, contact_name: contactName?.trim() || '' })
         .select().single();
       if (orgErr) throw orgErr;
-
       const { error: memErr } = await supabase
         .from('org_members')
         .insert({ org_id: org.id, user_id: user.id, role: 'admin' });
       if (memErr) throw memErr;
-
       return ok({ ok: true, org });
     }
 
@@ -98,10 +97,8 @@ exports.handler = async (event) => {
     if (action === 'members' && event.httpMethod === 'GET') {
       const ctx = await getCtx(event);
       if (!ctx || ctx.role !== 'admin') return err(403, 'Admins only');
-
       const { data: members } = await supabase
-        .from('org_members').select('id, user_id, role, created_at').eq('org_id', ctx.orgId);
-
+        .from('org_members').select('id, user_id, role, allowed_vehicles, created_at').eq('org_id', ctx.orgId);
       const enriched = await Promise.all((members || []).map(async m => {
         const { data: { user } } = await supabase.auth.admin.getUserById(m.user_id);
         return { ...m, email: user?.email || '—' };
@@ -113,28 +110,20 @@ exports.handler = async (event) => {
     if (action === 'invite' && event.httpMethod === 'POST') {
       const ctx = await getCtx(event);
       if (!ctx || ctx.role !== 'admin') return err(403, 'Admins only');
-
-      const { email, role } = JSON.parse(event.body || '{}');
-      if (!email?.trim() || !['admin', 'editor'].includes(role))
+      const { email, role, allowedVehicles } = JSON.parse(event.body || '{}');
+      if (!email?.trim() || !VALID_ROLES.includes(role))
         return err(400, 'Valid email and role required');
-
       const siteUrl = process.env.SITE_URL || 'http://localhost:8888';
       let targetUserId;
       let alreadyRegistered = false;
-
-      // Try to send an invite email; if user already has an account, look them up instead
       const { data: invited, error: invErr } = await supabase.auth.admin.inviteUserByEmail(
-        email.trim(),
-        { redirectTo: `${siteUrl}/signup.html` }
+        email.trim(), { redirectTo: `${siteUrl}/signup.html` }
       );
-
       if (invErr) {
         if (invErr.code !== 'email_exists') throw invErr;
-        // User already registered — find their ID with exact email match
         alreadyRegistered = true;
         const normalised = email.trim().toLowerCase();
-        let found = null;
-        let page  = 1;
+        let found = null, page = 1;
         while (!found) {
           const { data, error: listErr } = await supabase.auth.admin.listUsers({ page, perPage: 1000 });
           if (listErr) throw listErr;
@@ -147,30 +136,28 @@ exports.handler = async (event) => {
       } else {
         targetUserId = invited.user.id;
       }
-
-      // Upsert membership (idempotent)
       const { data: existingMember } = await supabase
         .from('org_members').select('id').eq('user_id', targetUserId).eq('org_id', ctx.orgId).single();
+      const memberData = { role };
+      if (role === 'investor') memberData.allowed_vehicles = allowedVehicles || [];
       if (!existingMember) {
         const { error: memErr } = await supabase.from('org_members').insert({
-          org_id: ctx.orgId, user_id: targetUserId, role, invited_by: ctx.userId,
+          org_id: ctx.orgId, user_id: targetUserId, invited_by: ctx.userId, ...memberData,
         });
         if (memErr) throw memErr;
       } else {
-        const { error: updErr } = await supabase.from('org_members').update({ role }).eq('id', existingMember.id);
+        const { error: updErr } = await supabase.from('org_members').update(memberData).eq('id', existingMember.id);
         if (updErr) throw updErr;
       }
       return ok({ ok: true, userId: targetUserId, alreadyRegistered });
     }
 
-    // ── DELETE remove-member (admin only) ───────────────────
+    // ── DELETE remove-member (admin only) ────────────────────
     if (action === 'remove-member' && event.httpMethod === 'DELETE') {
       const ctx = await getCtx(event);
       if (!ctx || ctx.role !== 'admin') return err(403, 'Admins only');
-
       const { memberId } = JSON.parse(event.body || '{}');
       if (!memberId) return err(400, 'memberId required');
-      // Prevent removing yourself
       const { data: m } = await supabase.from('org_members').select('user_id').eq('id', memberId).single();
       if (m?.user_id === ctx.userId) return err(400, 'Cannot remove yourself');
       await supabase.from('org_members').delete().eq('id', memberId).eq('org_id', ctx.orgId);
@@ -181,20 +168,13 @@ exports.handler = async (event) => {
     if (action === 'create-account' && event.httpMethod === 'POST') {
       const ctx = await getCtx(event);
       if (!ctx || ctx.role !== 'admin') return err(403, 'Admins only');
-
-      const { email, password, role } = JSON.parse(event.body || '{}');
-      if (!email?.trim() || !password || password.length < 6 || !['admin', 'editor'].includes(role))
+      const { email, password, role, allowedVehicles } = JSON.parse(event.body || '{}');
+      if (!email?.trim() || !password || password.length < 6 || !VALID_ROLES.includes(role))
         return err(400, 'Valid email, password (6+ chars), and role required');
-
-      let targetUserId;
-      let alreadyExists = false;
-
+      let targetUserId, alreadyExists = false;
       const { data: created, error: createErr } = await supabase.auth.admin.createUser({
-        email: email.trim(),
-        password,
-        email_confirm: true,
+        email: email.trim(), password, email_confirm: true,
       });
-
       if (createErr) {
         const msg = (createErr.message || '').toLowerCase();
         if (createErr.code === 'email_exists' || msg.includes('already been registered') || msg.includes('already registered')) {
@@ -210,45 +190,54 @@ exports.handler = async (event) => {
           }
           if (!found) return err(400, 'Email already exists but user not found in system');
           targetUserId = found.id;
-        } else {
-          throw createErr;
-        }
+        } else { throw createErr; }
       } else {
         targetUserId = created.user.id;
       }
-
       const { data: existingMember } = await supabase
         .from('org_members').select('id').eq('user_id', targetUserId).eq('org_id', ctx.orgId).single();
+      const memberData = { role };
+      if (role === 'investor') memberData.allowed_vehicles = allowedVehicles || [];
       if (!existingMember) {
         const { error: memErr } = await supabase.from('org_members').insert({
-          org_id: ctx.orgId, user_id: targetUserId, role, invited_by: ctx.userId,
+          org_id: ctx.orgId, user_id: targetUserId, invited_by: ctx.userId, ...memberData,
         });
         if (memErr) throw memErr;
       } else {
-        const { error: updErr } = await supabase.from('org_members').update({ role }).eq('id', existingMember.id);
+        const { error: updErr } = await supabase.from('org_members').update(memberData).eq('id', existingMember.id);
         if (updErr) throw updErr;
       }
-
       return ok({ ok: true, userId: targetUserId, alreadyExists });
     }
 
-    // ── POST update-org (admin only) ──────────────────────────
+    // ── POST update-member-vehicles (admin only) ─────────────
+    if (action === 'update-member-vehicles' && event.httpMethod === 'POST') {
+      const ctx = await getCtx(event);
+      if (!ctx || ctx.role !== 'admin') return err(403, 'Admins only');
+      const { memberId, allowedVehicles } = JSON.parse(event.body || '{}');
+      if (!memberId) return err(400, 'memberId required');
+      const { error: updErr } = await supabase
+        .from('org_members')
+        .update({ allowed_vehicles: allowedVehicles || [] })
+        .eq('id', memberId)
+        .eq('org_id', ctx.orgId);
+      if (updErr) throw updErr;
+      return ok({ ok: true });
+    }
+
+    // ── POST update-org (admin only) ─────────────────────────
     if (action === 'update-org' && event.httpMethod === 'POST') {
       const ctx = await getCtx(event);
       if (!ctx || ctx.role !== 'admin') return err(403, 'Admins only');
-
       const { name, address, phone, logoUrl } = JSON.parse(event.body || '{}');
       if (!name?.trim()) return err(400, 'Business name is required');
-
       const updates = { name: name.trim() };
       if (address !== undefined) updates.address = address;
       if (phone   !== undefined) updates.phone   = phone;
       if (logoUrl !== undefined) updates.logo_url = logoUrl;
-
       const { error: updErr } = await supabase
         .from('organizations').update(updates).eq('id', ctx.orgId);
       if (updErr) throw updErr;
-
       return ok({ ok: true });
     }
 

@@ -248,7 +248,8 @@ body.lang-ur .ltr { direction: ltr; unicode-bidi: embed; }
 let _sb          = null;   // Supabase JS client
 let _jwtToken    = null;   // Current access token
 let currentUser  = null;   // Supabase user object
-let currentRole  = null;   // 'admin' | 'editor'
+let currentRole  = null;   // 'admin' | 'editor' | 'investor'
+let currentAllowedVehicles = [];
 let currentOrg   = null;   // { id, name, ... }
 let currentLang  = 'en';  // 'en' | 'ur'
 let activeOrgId  = null;   // currently selected org
@@ -337,8 +338,9 @@ async function initAuth() {
     return false;
   }
 
-  currentOrg  = profile.org;
-  currentRole = profile.role;
+  currentOrg             = profile.org;
+  currentRole            = profile.role;
+  currentAllowedVehicles = profile.allowedVehicles || [];
   activeOrgId = profile.org.id;
   allOrgs     = profile.allOrgs || [{ id: profile.org.id, name: profile.org.name, role: profile.role }];
   localStorage.setItem(`activeOrg_${currentUser.id}`, activeOrgId);
@@ -367,9 +369,14 @@ function applyRoleUI(isSuperAdmin) {
   const navLogo = document.getElementById('nav-logo');
   if (navLogo && currentOrg?.logo_url) navLogo.src = currentOrg.logo_url;
 
-  // Hide admin-only UI for editors
-  if (currentRole === 'editor') {
+  // Hide admin-only UI for non-admins
+  if (currentRole !== 'admin') {
     document.querySelectorAll('.admin-only-tab').forEach(el => el.classList.add('hidden'));
+  }
+  // Investors: read-only dashboard view, no entry form
+  if (currentRole === 'investor') {
+    document.querySelectorAll('[data-view="entry"], [data-tab="entry"]').forEach(el => el.classList.add('hidden'));
+    showView('daily');
   }
 
   // Show superadmin link
@@ -442,8 +449,9 @@ async function switchOrg(orgId) {
   // Re-fetch profile for the new org context
   const profile = await apiFetch('org-auth?action=profile').catch(() => null);
   if (profile && !profile.needsOrg) {
-    currentOrg  = profile.org;
-    currentRole = profile.role;
+    currentOrg             = profile.org;
+    currentRole            = profile.role;
+    currentAllowedVehicles = profile.allowedVehicles || [];
     allOrgs     = profile.allOrgs || allOrgs;
     document.querySelectorAll('.org-name-el').forEach(el => el.textContent = currentOrg?.name || '');
     applyRoleUI(profile.isSuperAdmin);
@@ -864,10 +872,10 @@ function updateSummary() {
   el('s-exp2').textContent  = `Trip Cash: ${N(c.tripExpCash)}${c.tripExpCredit?` · Credit: ${N(c.tripExpCredit)}`:''} · Misc: ${N(c.miscExp)} · Co.: ${N(c.coExp)}${c.dieselFillExp?` · Diesel: ${N(c.dieselFillExp)}`:''}${c.oilChangeExp?` · Oil: ${N(c.oilChangeExp)}`:''}`;
 
   el('s-prof').textContent  = Rs(c.profit);
-  el('s-prof').className    = `text-xl font-bold mt-1 prv-num ${c.profit>=0?'text-blue-700':'text-red-600'}`;
+  el('s-prof').className    = `text-xl font-bold mt-1 ${c.profit>=0?'text-blue-700':'text-red-600'}`;
   el('s-drvin').textContent = Rs(c.drvIn);
   el('s-drvrem').textContent= Rs(c.drvRem);
-  el('s-drvrem').className  = `text-xl font-bold mt-1 prv-num ${c.drvRem>=0?'text-amber-700':'text-red-600'}`;
+  el('s-drvrem').className  = `text-xl font-bold mt-1 ${c.drvRem>=0?'text-amber-700':'text-red-600'}`;
   FS.trips.forEach((trip,ti)=>{
     const tot = trip.exp.reduce((s,x)=>s+(+x.amt||0),0);
     const e2  = document.getElementById(`t-tot-${ti}`);
@@ -1566,24 +1574,24 @@ function renderForm() {
       <div class="grid grid-cols-2 gap-3 mb-4">
         <div class="bg-green-50 border border-green-200 rounded-lg p-3 text-center">
           <div class="text-xs text-green-600 font-medium uppercase tracking-wide">${t('summary.income')}</div>
-          <div id="s-inc" class="text-xl font-bold text-green-700 mt-1 prv-num">${Rs(c.totalInc)}</div>
+          <div id="s-inc" class="text-xl font-bold text-green-700 mt-1">${Rs(c.totalInc)}</div>
         </div>
         <div class="bg-red-50 border border-red-200 rounded-lg p-3 text-center">
           <div class="text-xs text-red-600 font-medium uppercase tracking-wide">${t('summary.expenses')}</div>
-          <div id="s-exp" class="text-xl font-bold text-red-600 mt-1 prv-num">${Rs(c.totalExp)}</div>
+          <div id="s-exp" class="text-xl font-bold text-red-600 mt-1">${Rs(c.totalExp)}</div>
           <div id="s-exp2" class="text-xs text-red-400 mt-0.5 leading-tight">Trip: ${N(c.tripExp)} · Misc: ${N(c.miscExp)} · Co.: ${N(c.coExp)}${c.dieselFillExp?` · Diesel: ${N(c.dieselFillExp)}`:''}${c.oilChangeExp?` · Oil: ${N(c.oilChangeExp)}`:''}</div>
         </div>
         <div class="bg-blue-50 border border-blue-200 rounded-lg p-3 text-center">
           <div class="text-xs text-blue-600 font-medium uppercase tracking-wide">${t('summary.profit')}</div>
-          <div id="s-prof" class="text-xl font-bold ${c.profit>=0?'text-blue-700':'text-red-600'} mt-1 prv-num">${Rs(c.profit)}</div>
+          <div id="s-prof" class="text-xl font-bold ${c.profit>=0?'text-blue-700':'text-red-600'} mt-1">${Rs(c.profit)}</div>
         </div>
         <div class="bg-amber-50 border border-amber-200 rounded-lg p-3 text-center">
           <div class="text-xs text-amber-600 font-medium uppercase tracking-wide">${t('summary.drv_in')}</div>
-          <div id="s-drvin" class="text-xl font-bold text-amber-700 mt-1 prv-num">${Rs(c.drvIn)}</div>
+          <div id="s-drvin" class="text-xl font-bold text-amber-700 mt-1">${Rs(c.drvIn)}</div>
         </div>
         <div class="bg-slate-50 border border-slate-200 rounded-lg p-3 text-center col-span-2">
           <div class="text-xs text-slate-600 font-medium uppercase tracking-wide">${t('summary.drv_rem')}</div>
-          <div id="s-drvrem" class="text-xl font-bold ${c.drvRem>=0?'text-amber-700':'text-red-600'} mt-1 prv-num">${Rs(c.drvRem)}</div>
+          <div id="s-drvrem" class="text-xl font-bold ${c.drvRem>=0?'text-amber-700':'text-red-600'} mt-1">${Rs(c.drvRem)}</div>
         </div>
       </div>
       <div>
@@ -1675,6 +1683,7 @@ function openDay(id) {
           <span class="text-xs text-gray-400 font-medium">${window.t('ledger.trip_label')} ${i+1}</span>
           <div class="font-semibold text-slate-700 text-sm">${esc(t.dest)}</div>
           ${t.cust ? `<div class="text-xs text-gray-500">${esc(t.cust)}</div>` : ''}
+          ${t.material ? `<div class="text-xs text-indigo-500 font-medium">${esc(t.material)}</div>` : ''}
           ${t.kms ? `<div class="text-xs text-indigo-600 font-semibold">${t.kms} km</div>` : ''}
         </div>
         <span class="text-xs px-2 py-1 rounded-full shrink-0 ml-2 ${t.pm==='cash'?'bg-green-100 text-green-700':t.pm==='partial'?'bg-blue-100 text-blue-700':'bg-amber-100 text-amber-700'}">${t.pm==='cash'?window.t('pm.cash'):t.pm==='partial'?`${window.t('pm.partial')} (${window.t('ledger.cash')}: ${Rs(t.cashAmt||0)})`:`${window.t('pm.credit')}`}</span>
@@ -1783,7 +1792,7 @@ function openDay(id) {
 
       <!-- Action buttons -->
       <div class="no-print flex gap-2 mb-4 flex-wrap">
-        ${currentRole !== 'editor' ? `
+        ${currentRole !== 'editor' && currentRole !== 'investor' ? `
         <button onclick="editDay('${id}')" class="flex-1 border px-3 py-2.5 rounded-lg text-sm font-medium hover:bg-gray-50 text-center">${t('modal.edit')}</button>
         <button onclick="delDay('${id}')" class="flex-1 border border-red-200 text-red-500 px-3 py-2.5 rounded-lg text-sm font-medium hover:bg-red-50 text-center">${t('modal.delete')}</button>
         ` : ''}
@@ -2959,6 +2968,7 @@ function buildMonthly(month) {
 
 // ─── VIEW SWITCHING ─────────────────────────────────────────
 function showView(name) {
+  if (name === 'entry' && currentRole === 'investor') name = 'daily';
 
   document.querySelectorAll('.view').forEach(v=>v.classList.add('hidden'));
   document.getElementById('view-'+name).classList.remove('hidden');

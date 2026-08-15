@@ -197,14 +197,19 @@
             <div class="flex gap-2">
               <input id="invite-email" type="email" placeholder="Email address"
                 class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400">
-              <select id="invite-role" class="border border-gray-300 rounded-lg px-2 py-2 text-sm">
+              <select id="invite-role" onchange="toggleInviteVehiclePicker()" class="border border-gray-300 rounded-lg px-2 py-2 text-sm">
                 <option value="editor">Editor</option>
                 <option value="admin">Admin</option>
+                <option value="investor">Investor</option>
               </select>
               <button onclick="inviteMember()" id="invite-btn"
                 class="bg-amber-500 hover:bg-amber-600 text-white px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap">
                 Send Invite
               </button>
+            </div>
+            <div id="invite-vehicle-picker" class="hidden mt-2 p-3 bg-indigo-50 border border-indigo-100 rounded-lg">
+              <p class="text-xs font-semibold text-indigo-700 mb-2">Assign Vehicles (investor sees only these)</p>
+              <div id="invite-vehicle-list" class="space-y-1.5 text-sm text-gray-500">Loading vehicles…</div>
             </div>
             <p class="text-xs text-gray-400 mt-2">Sends an invitation email. They'll set up their own password.</p>
           </div>
@@ -218,10 +223,15 @@
               <div class="flex gap-2">
                 <input id="create-password" type="password" placeholder="Password (6+ chars)"
                   class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400">
-                <select id="create-role" class="border border-gray-300 rounded-lg px-2 py-2 text-sm">
+                <select id="create-role" onchange="toggleCreateVehiclePicker()" class="border border-gray-300 rounded-lg px-2 py-2 text-sm">
                   <option value="editor">Editor</option>
                   <option value="admin">Admin</option>
+                  <option value="investor">Investor</option>
                 </select>
+              </div>
+              <div id="create-vehicle-picker" class="hidden p-3 bg-indigo-50 border border-indigo-100 rounded-lg">
+                <p class="text-xs font-semibold text-indigo-700 mb-2">Assign Vehicles (investor sees only these)</p>
+                <div id="create-vehicle-list" class="space-y-1.5 text-sm text-gray-500">Loading vehicles…</div>
               </div>
               <button onclick="createAccount()" id="create-btn"
                 class="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg text-sm font-medium">
@@ -333,6 +343,8 @@ let _session = null;
 let _orgId = null;
 let _currentUser = null;
 let _isAdmin = false;
+let _settingsVehicles = [];
+let _editingMemberId = null;
 
 function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
@@ -530,21 +542,101 @@ async function loadTeamMembers() {
   const list = document.getElementById('team-members-list');
   list.textContent = 'Loading…';
   try {
-    const members = await apiFetch('org-auth?action=members');
+    const [members, vehicles] = await Promise.all([
+      apiFetch('org-auth?action=members'),
+      apiFetch('vehicles').catch(() => []),
+    ]);
+    _settingsVehicles = vehicles || [];
+    renderVehiclePicker('invite-vehicle-list', []);
+    renderVehiclePicker('create-vehicle-list', []);
     if (!members.length) { list.innerHTML = '<span class="text-gray-400 text-xs">No members yet.</span>'; return; }
-    list.innerHTML = members.map(m => `
-      <div class="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2">
-        <div>
-          <span class="font-medium text-gray-700">${esc(m.email)}</span>
-          <span class="ml-2 text-xs px-2 py-0.5 rounded-full font-medium ${m.role === 'admin' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'}">${m.role}</span>
+    const roleBadge = r => r === 'admin'
+      ? 'bg-amber-100 text-amber-700'
+      : r === 'investor'
+        ? 'bg-indigo-100 text-indigo-700'
+        : 'bg-blue-100 text-blue-700';
+    list.innerHTML = members.map(m => {
+      const vIds = m.allowed_vehicles || [];
+      const vTags = m.role === 'investor' && vIds.length
+        ? vIds.map(id => { const v = _settingsVehicles.find(x => x.id === id); return v ? `<span class="text-xs bg-gray-200 text-gray-600 px-1.5 py-0.5 rounded">${esc(v.plate)}</span>` : ''; }).filter(Boolean).join(' ')
+        : '';
+      return `
+      <div class="bg-gray-50 rounded-lg px-3 py-2">
+        <div class="flex items-center justify-between">
+          <div class="min-w-0">
+            <span class="font-medium text-gray-700">${esc(m.email)}</span>
+            <span class="ml-2 text-xs px-2 py-0.5 rounded-full font-medium ${roleBadge(m.role)}">${m.role}</span>
+            ${vTags ? `<div class="flex flex-wrap gap-1 mt-1">${vTags}</div>` : ''}
+          </div>
+          <div class="flex items-center gap-2 ml-3 shrink-0">
+            ${m.role === 'investor' ? `<button onclick="openInvestorModal('${m.id}', ${JSON.stringify(vIds)})" class="text-indigo-500 hover:text-indigo-700 text-xs">Edit Vehicles</button>` : ''}
+            ${m.user_id !== _currentUser?.id
+              ? `<button onclick="removeMember('${m.id}')" class="text-red-400 hover:text-red-600 text-xs">Remove</button>`
+              : '<span class="text-xs text-gray-300">You</span>'}
+          </div>
         </div>
-        ${m.user_id !== _currentUser?.id
-          ? `<button onclick="removeMember('${m.id}')" class="text-red-400 hover:text-red-600 text-xs ml-2">Remove</button>`
-          : '<span class="text-xs text-gray-300">You</span>'}
-      </div>`).join('');
+      </div>`;
+    }).join('');
   } catch {
     list.innerHTML = '<span class="text-red-400 text-xs">Failed to load members.</span>';
   }
+}
+
+function renderVehiclePicker(containerId, selectedIds) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  if (!_settingsVehicles.length) {
+    el.innerHTML = '<span class="text-xs text-amber-600">No vehicles registered. Add vehicles in the Vehicles tab first.</span>';
+    return;
+  }
+  el.innerHTML = _settingsVehicles.map(v => `
+    <label class="flex items-center gap-2 cursor-pointer">
+      <input type="checkbox" value="${v.id}" ${selectedIds.includes(v.id) ? 'checked' : ''} class="w-4 h-4 accent-indigo-600">
+      <span class="font-medium">${esc(v.plate)}</span>${v.name ? `<span class="text-gray-400 text-xs ml-1">${esc(v.name)}</span>` : ''}
+    </label>`).join('');
+}
+
+function getSelectedVehicles(containerId) {
+  return [...document.querySelectorAll(`#${containerId} input[type=checkbox]:checked`)].map(cb => cb.value);
+}
+
+function toggleInviteVehiclePicker() {
+  const isInvestor = document.getElementById('invite-role').value === 'investor';
+  document.getElementById('invite-vehicle-picker').classList.toggle('hidden', !isInvestor);
+}
+
+function toggleCreateVehiclePicker() {
+  const isInvestor = document.getElementById('create-role').value === 'investor';
+  document.getElementById('create-vehicle-picker').classList.toggle('hidden', !isInvestor);
+}
+
+function openInvestorModal(memberId, currentIds) {
+  _editingMemberId = memberId;
+  const list = document.getElementById('investor-modal-list');
+  if (!_settingsVehicles.length) {
+    list.innerHTML = '<span class="text-xs text-amber-600">No vehicles registered.</span>';
+  } else {
+    list.innerHTML = _settingsVehicles.map(v => `
+      <label class="flex items-center gap-2 cursor-pointer">
+        <input type="checkbox" value="${v.id}" ${currentIds.includes(v.id) ? 'checked' : ''} class="w-4 h-4 accent-indigo-600 investor-veh-cb">
+        <span class="font-medium">${esc(v.plate)}</span>${v.name ? `<span class="text-gray-400 text-xs ml-1">${esc(v.name)}</span>` : ''}
+      </label>`).join('');
+  }
+  document.getElementById('investor-modal').classList.remove('hidden');
+}
+
+function closeInvestorModal() {
+  document.getElementById('investor-modal').classList.add('hidden');
+  _editingMemberId = null;
+}
+
+async function saveInvestorVehicles() {
+  const checked = [...document.querySelectorAll('.investor-veh-cb:checked')].map(cb => cb.value);
+  try {
+    await apiFetch('org-auth?action=update-member-vehicles', { method: 'POST', body: { memberId: _editingMemberId, allowedVehicles: checked } });
+    closeInvestorModal();
+    loadTeamMembers();
+  } catch (e) { alert('Failed to update vehicles: ' + e.message); }
 }
 
 async function removeMember(memberId) {
@@ -567,7 +659,8 @@ async function inviteMember() {
   btn.textContent = 'Sending…';
   btn.disabled = true;
   try {
-    const result = await apiFetch('org-auth?action=invite', { method: 'POST', body: { email, role } });
+    const allowedVehicles = role === 'investor' ? getSelectedVehicles('invite-vehicle-list') : [];
+    const result = await apiFetch('org-auth?action=invite', { method: 'POST', body: { email, role, allowedVehicles } });
     okEl.textContent = result.alreadyRegistered ? `${email} already has an account — added to your team.` : `Invite sent to ${email}`;
     okEl.classList.remove('hidden');
     document.getElementById('invite-email').value = '';
@@ -596,7 +689,8 @@ async function createAccount() {
   btn.textContent = 'Creating…';
   btn.disabled = true;
   try {
-    const result = await apiFetch('org-auth?action=create-account', { method: 'POST', body: { email, password, role } });
+    const allowedVehicles = role === 'investor' ? getSelectedVehicles('create-vehicle-list') : [];
+    const result = await apiFetch('org-auth?action=create-account', { method: 'POST', body: { email, password, role, allowedVehicles } });
     if (result.alreadyExists) {
       okEl.textContent = `Account already existed — added to your team.`;
     } else if (isUsername) {
@@ -764,5 +858,18 @@ async function changePassword() {
 
 init();
 </script>
+
+<!-- Investor vehicle assignment modal -->
+<div id="investor-modal" class="hidden fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+  <div class="bg-white rounded-xl p-5 w-full max-w-sm shadow-xl">
+    <h3 class="font-semibold text-gray-800 mb-1">Manage Investor Vehicles</h3>
+    <p class="text-xs text-gray-400 mb-3">This investor will only see entries for the selected vehicles.</p>
+    <div id="investor-modal-list" class="space-y-2 max-h-56 overflow-y-auto mb-4 border rounded-lg p-3 bg-gray-50"></div>
+    <div class="flex gap-2 justify-end">
+      <button onclick="closeInvestorModal()" class="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50">Cancel</button>
+      <button onclick="saveInvestorVehicles()" class="px-4 py-2 text-sm bg-amber-500 hover:bg-amber-600 text-white rounded-lg font-medium">Save</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
