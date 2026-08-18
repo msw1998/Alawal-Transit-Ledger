@@ -1792,10 +1792,10 @@ function openDay(id) {
 
       <!-- Action buttons -->
       <div class="no-print flex gap-2 mb-4 flex-wrap">
-        ${currentRole !== 'editor' && currentRole !== 'investor' ? `
-        <button onclick="editDay('${id}')" class="flex-1 border px-3 py-2.5 rounded-lg text-sm font-medium hover:bg-gray-50 text-center">${t('modal.edit')}</button>
-        <button onclick="delDay('${id}')" class="flex-1 border border-red-200 text-red-500 px-3 py-2.5 rounded-lg text-sm font-medium hover:bg-red-50 text-center">${t('modal.delete')}</button>
-        ` : ''}
+        ${currentRole !== 'investor' ? `
+        <button onclick="editDay('${id}')" class="flex-1 border px-3 py-2.5 rounded-lg text-sm font-medium hover:bg-gray-50 text-center">${t('modal.edit')}</button>` : ''}
+        ${currentRole === 'admin' ? `
+        <button onclick="delDay('${id}')" class="flex-1 border border-red-200 text-red-500 px-3 py-2.5 rounded-lg text-sm font-medium hover:bg-red-50 text-center">${t('modal.delete')}</button>` : ''}
         <button onclick="printDay()" class="flex-1 bg-slate-700 text-white px-3 py-2.5 rounded-lg text-sm font-medium hover:bg-slate-800 text-center">${t('modal.print')}</button>
       </div>
 
