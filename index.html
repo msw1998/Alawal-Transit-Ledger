@@ -1193,7 +1193,7 @@ function renderForm() {
         </div>
         <div id="t-ev-wrap-${ti}-${ei}" class="${x.mode==='credit'?'':'hidden'}">
           <input id="t-ev-${ti}-${ei}" type="text" value="${esc(x.vendor||'')}" placeholder="Vendor name"
-            class="w-full ${INPS} border-amber-300 focus:ring-amber-300 bg-amber-50 text-sm">
+            list="vendor-list" class="w-full ${INPS} border-amber-300 focus:ring-amber-300 bg-amber-50 text-sm">
         </div>
       </div>`).join('');
 
